@@ -138,6 +138,14 @@ Page {
         size: BusyIndicatorSize.Large
     }
 
+    Timer {
+        id: autoRefreshTimer
+        interval: 6000
+        running: true
+        repeat: true
+        onTriggered: refresh()
+    }
+
     function formatTime(isoString) {
         if (!isoString) return ""
         var date = new Date(isoString)
@@ -202,7 +210,10 @@ Page {
         target: appWindow
         onApplicationActiveChanged: {
             if (appWindow.applicationActive) {
+                autoRefreshTimer.start()
                 refresh()
+            } else {
+                autoRefreshTimer.stop()
             }
         }
     }
