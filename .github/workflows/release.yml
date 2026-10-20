@@ -84,10 +84,12 @@ jobs:
           sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.yaml
 
       - name: Build RPM for ${{ matrix.arch }}
-        uses: coderus/github-sfos-build@master
+        uses: R1tschY/sailfish-build-rpm@v1
         with:
           release: ${{ env.SFOS_RELEASE }}
           arch: ${{ matrix.arch }}
+          source-dir: harbour-gitwatch
+          fix-version: false
 
       - name: Rename RPM with version
         run: |
