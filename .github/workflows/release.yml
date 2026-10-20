@@ -133,18 +133,20 @@ jobs:
       - name: Download all RPMs
         uses: actions/download-artifact@v4
         with:
-          path: dist/
+          path: dist
           pattern: rpm-*
           merge-multiple: true
 
       - name: Create source tarball
-        working-directory: harbour-gitwatch
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
+          cd harbour-gitwatch
           sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
           chmod +x build.sh
           ./build.sh
-          cp harbour-gitwatch-*.tar.bz2 ../../dist/
+          mkdir -p ../dist
+          cp harbour-gitwatch-*.tar.bz2 ../dist/
+          cd ..
 
       - name: Generate release notes
         id: notes
