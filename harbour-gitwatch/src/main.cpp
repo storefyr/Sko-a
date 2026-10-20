@@ -16,19 +16,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  ****************************************************************************************/
 
-#ifdef QT_QML_DEBUG
 #include <QtQuick>
-#endif
-
 #include <sailfishapp.h>
 
 int main(int argc, char *argv[])
 {
-    QScopedPointer<QGuiApplication> app(SailfishApp::application(argc, argv));
-    QScopedPointer<QQuickView> view(SailfishApp::createView());
+    QGuiApplication *app = SailfishApp::application(argc, argv);
+    QQuickView *view = SailfishApp::createView();
 
     view->setSource(SailfishApp::pathTo("qml/harbour-gitwatch.qml"));
 
     view->show();
-    return app->exec();
+    int result = app->exec();
+
+    delete view;
+    delete app;
+
+    return result;
 }
