@@ -106,6 +106,82 @@ Page {
             }
 
             SectionHeader {
+                text: "Notifikationsfilter"
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                text: "Vælg hvilke hændelsestyper der skal give notifikationer:"
+                color: Theme.secondaryColor
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
+            }
+
+            TextSwitch {
+                id: filterPush
+                text: "Push (commits)"
+                checked: true
+                onCheckedChanged: updateFilter()
+            }
+
+            TextSwitch {
+                id: filterPR
+                text: "Pull requests"
+                checked: true
+                onCheckedChanged: updateFilter()
+            }
+
+            TextSwitch {
+                id: filterIssues
+                text: "Issues"
+                checked: true
+                onCheckedChanged: updateFilter()
+            }
+
+            TextSwitch {
+                id: filterReleases
+                text: "Releases"
+                checked: true
+                onCheckedChanged: updateFilter()
+            }
+
+            TextSwitch {
+                id: filterCreate
+                text: "Nye branches/repositories"
+                checked: true
+                onCheckedChanged: updateFilter()
+            }
+
+            TextSwitch {
+                id: filterDelete
+                text: "Slettede branches/tags"
+                checked: true
+                onCheckedChanged: updateFilter()
+            }
+
+            TextSwitch {
+                id: filterStar
+                text: "Stjerner (Watch)"
+                checked: true
+                onCheckedChanged: updateFilter()
+            }
+
+            TextSwitch {
+                id: filterFork
+                text: "Forks"
+                checked: true
+                onCheckedChanged: updateFilter()
+            }
+
+            TextSwitch {
+                id: filterComment
+                text: "Kommentarer"
+                checked: true
+                onCheckedChanged: updateFilter()
+            }
+
+            SectionHeader {
                 text: "Avanceret"
             }
 
@@ -135,7 +211,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "GitWatch 0.2.7\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
+                text: "GitWatch 0.2.8\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
@@ -169,8 +245,38 @@ Page {
         })
     }
 
+    function loadFilter() {
+        appWindow.py.call("gitwatch.github_client.get_notification_filter", [], function(filter) {
+            console.log("notification_filter: " + JSON.stringify(filter))
+            filterPush.checked = filter.indexOf("PushEvent") !== -1
+            filterPR.checked = filter.indexOf("PullRequestEvent") !== -1
+            filterIssues.checked = filter.indexOf("IssuesEvent") !== -1
+            filterReleases.checked = filter.indexOf("ReleaseEvent") !== -1
+            filterCreate.checked = filter.indexOf("CreateEvent") !== -1
+            filterDelete.checked = filter.indexOf("DeleteEvent") !== -1
+            filterStar.checked = filter.indexOf("WatchEvent") !== -1
+            filterFork.checked = filter.indexOf("ForkEvent") !== -1
+            filterComment.checked = filter.indexOf("CommitCommentEvent") !== -1
+        })
+    }
+
+    function updateFilter() {
+        var filter = []
+        if (filterPush.checked) filter.push("PushEvent")
+        if (filterPR.checked) filter.push("PullRequestEvent")
+        if (filterIssues.checked) filter.push("IssuesEvent")
+        if (filterReleases.checked) filter.push("ReleaseEvent")
+        if (filterCreate.checked) filter.push("CreateEvent")
+        if (filterDelete.checked) filter.push("DeleteEvent")
+        if (filterStar.checked) filter.push("WatchEvent")
+        if (filterFork.checked) filter.push("ForkEvent")
+        if (filterComment.checked) filter.push("CommitCommentEvent")
+        appWindow.py.call("gitwatch.github_client.set_notification_filter", [filter], function() {})
+    }
+
     Component.onCompleted: {
         loadUsers()
+        loadFilter()
         appWindow.py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
             notificationsEnabled = enabled
             notifSwitch.checked = enabled

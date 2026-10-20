@@ -309,6 +309,55 @@ class TestNotificationSettings(unittest.TestCase):
         self.assertTrue(github_client.are_notifications_enabled())
 
 
+class TestNotificationFilter(unittest.TestCase):
+    """Test notification filter functionality."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.original_data_dir = github_client.DATA_DIR
+        self.original_state_file = github_client.STATE_FILE
+        github_client.DATA_DIR = self.temp_dir
+        github_client.STATE_FILE = os.path.join(self.temp_dir, "state.json")
+
+    def tearDown(self):
+        github_client.DATA_DIR = self.original_data_dir
+        github_client.STATE_FILE = self.original_state_file
+        import shutil
+
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_default_filter_includes_all(self):
+        filter_types = github_client.get_notification_filter()
+        self.assertIn("PushEvent", filter_types)
+        self.assertIn("ReleaseEvent", filter_types)
+        self.assertIn("PullRequestEvent", filter_types)
+
+    def test_set_filter_releases_only(self):
+        github_client.set_notification_filter(["ReleaseEvent"])
+        filter_types = github_client.get_notification_filter()
+        self.assertEqual(filter_types, ["ReleaseEvent"])
+
+    def test_should_notify_with_filter(self):
+        github_client.set_notification_filter(["ReleaseEvent"])
+        self.assertTrue(github_client.should_notify("ReleaseEvent"))
+        self.assertFalse(github_client.should_notify("PushEvent"))
+
+    def test_should_notify_disabled(self):
+        github_client.set_notifications_enabled(False)
+        self.assertFalse(github_client.should_notify("ReleaseEvent"))
+
+    def test_filter_events_for_notification(self):
+        github_client.set_notification_filter(["ReleaseEvent"])
+        events = [
+            {"type": "PushEvent", "summary": "Push"},
+            {"type": "ReleaseEvent", "summary": "Release"},
+            {"type": "IssuesEvent", "summary": "Issue"},
+        ]
+        filtered = github_client.filter_events_for_notification(events)
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["type"], "ReleaseEvent")
+
+
 class TestEventDeduplication(unittest.TestCase):
     """Test event deduplication logic."""
 

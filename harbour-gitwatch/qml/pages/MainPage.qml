@@ -190,15 +190,17 @@ Page {
 
     function checkForNewEvents() {
         appWindow.py.call("gitwatch.github_client.check_for_updates", [], function(newEvents) {
-            if (newEvents.length > 0) {
-                var firstEvent = newEvents[0]
-                var summaryText = "GitWatch: " + firstEvent.summary
-                var bodyText = (firstEvent.user || "") + ": " + firstEvent.body
-                if (newEvents.length > 1) {
-                    bodyText += " (+" + (newEvents.length - 1) + " flere)"
+            appWindow.py.call("gitwatch.github_client.filter_events_for_notification", [newEvents], function(filtered) {
+                if (filtered.length > 0) {
+                    var firstEvent = filtered[0]
+                    var summaryText = "GitWatch: " + firstEvent.summary
+                    var bodyText = (firstEvent.user || "") + ": " + firstEvent.body
+                    if (filtered.length > 1) {
+                        bodyText += " (+" + (filtered.length - 1) + " flere)"
+                    }
+                    showNotification(summaryText, bodyText)
                 }
-                showNotification(summaryText, bodyText)
-            }
+            })
         })
     }
 

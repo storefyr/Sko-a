@@ -50,7 +50,13 @@ def load_state():
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
-    return {"last_check": None, "seen_events": [], "watched_users": ["storefyr"], "notifications_enabled": True}
+    return {
+        "last_check": None,
+        "seen_events": [],
+        "watched_users": ["storefyr"],
+        "notifications_enabled": True,
+        "notification_filter": ["PushEvent", "PullRequestEvent", "IssuesEvent", "ReleaseEvent", "CreateEvent", "DeleteEvent", "WatchEvent", "ForkEvent", "CommitCommentEvent"],
+    }
 
 
 def save_state(state):
@@ -546,6 +552,30 @@ def set_notifications_enabled(enabled):
 def are_notifications_enabled():
     state = load_state()
     return state.get("notifications_enabled", True)
+
+
+def get_notification_filter():
+    state = load_state()
+    default = ["PushEvent", "PullRequestEvent", "IssuesEvent", "ReleaseEvent", "CreateEvent", "DeleteEvent", "WatchEvent", "ForkEvent", "CommitCommentEvent"]
+    return state.get("notification_filter", default)
+
+
+def set_notification_filter(event_types):
+    state = load_state()
+    state["notification_filter"] = event_types
+    save_state(state)
+    return event_types
+
+
+def should_notify(event_type):
+    if not are_notifications_enabled():
+        return False
+    allowed = get_notification_filter()
+    return event_type in allowed
+
+
+def filter_events_for_notification(events):
+    return [e for e in events if should_notify(e.get("type", ""))]
 
 
 def run_background_check():

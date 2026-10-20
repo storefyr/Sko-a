@@ -19,7 +19,7 @@
 
 Name:           harbour-gitwatch
 Summary:        GitHub Activity Notifier
-Version:        0.2.7
+Version:        0.2.8
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
