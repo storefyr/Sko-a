@@ -157,6 +157,16 @@ jobs:
             echo "Icon OK: $icon"
           done
 
+      - name: Validate desktop file
+        working-directory: harbour-gitwatch
+        run: |
+          test -f harbour-gitwatch.desktop || { echo "Missing harbour-gitwatch.desktop"; exit 1; }
+          grep -q "^\[Desktop Entry\]" harbour-gitwatch.desktop
+          grep -q "^Name=" harbour-gitwatch.desktop
+          grep -q "^Exec=" harbour-gitwatch.desktop
+          grep -q "^Icon=" harbour-gitwatch.desktop
+          echo "Desktop file OK"
+
   validate-qml:
     name: Validate QML
     runs-on: ubuntu-latest
@@ -200,13 +210,16 @@ jobs:
           done
           echo "All QML files passed validation"
 
-  build-package:
-    name: Build Package
+  build-tarball:
+    name: Build Source Tarball
     runs-on: ubuntu-latest
     needs: [python-tests, lint, validate-packaging, validate-qml]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bzip2
 
       - name: Create source tarball
         working-directory: harbour-gitwatch
@@ -223,14 +236,24 @@ jobs:
       - name: Verify tarball contents
         run: |
           cd harbour-gitwatch
-          tar -tjf harbour-gitwatch-*.tar.bz2 | head -20
+          echo "--- Tarball contents ---"
+          tar -tjf harbour-gitwatch-*.tar.bz2 | head -30
           echo "---"
           echo "Tarball contains $(tar -tjf harbour-gitwatch-*.tar.bz2 | wc -l) files"
+          echo ""
+          echo "--- Key files check ---"
+          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "rpm/harbour-gitwatch.spec" && echo "✓ spec file present"
+          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "rpm/harbour-gitwatch.yaml" && echo "✓ yaml file present"
+          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "harbour-gitwatch.pro" && echo "✓ pro file present"
+          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "harbour-gitwatch.desktop" && echo "✓ desktop file present"
+          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "qml/harbour-gitwatch.qml" && echo "✓ QML main file present"
+          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "python/gitwatch/__init__.py" && echo "✓ Python module present"
+          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "icons/harbour-gitwatch-86.png" && echo "✓ icons present"
 
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [python-tests, lint, validate-packaging, validate-qml, build-package]
+    needs: [python-tests, lint, validate-packaging, validate-qml, build-tarball]
     if: always()
     steps:
       - name: Check results
@@ -243,13 +266,13 @@ jobs:
           echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Validate Packaging | ${{ needs.validate-packaging.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Validate QML | ${{ needs.validate-qml.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build Package | ${{ needs.build-package.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Tarball | ${{ needs.build-tarball.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ needs.python-tests.result }}" == "success" ] && \
              [ "${{ needs.lint.result }}" == "success" ] && \
              [ "${{ needs.validate-packaging.result }}" == "success" ] && \
              [ "${{ needs.validate-qml.result }}" == "success" ] && \
-             [ "${{ needs.build-package.result }}" == "success" ]; then
+             [ "${{ needs.build-tarball.result }}" == "success" ]; then
             echo "✅ All checks passed!" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Some checks failed. See job logs for details." >> $GITHUB_STEP_SUMMARY

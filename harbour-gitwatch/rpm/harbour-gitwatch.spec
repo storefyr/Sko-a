@@ -17,19 +17,25 @@
 %define __provides_exclude_from ^%{_datadir}/%{name}/python/.*$
 %define __requires_exclude ^python3.*$
 
-Name: harbour-gitwatch
-Summary: GitHub Activity Notifier
-Version: 0.1.0
-Release: 1
-Group: Applications/Internet
-License: GPL-3.0
-URL: https://github.com/storefyr/Sko-a/tree/main/harbour-gitwatch
-Source0: %{name}-%{version}.tar.bz2
-BuildArch: noarch
+Name:           harbour-gitwatch
+Summary:        GitHub Activity Notifier
+Version:        0.1.0
+Release:        1
+Group:          Applications/Internet
+License:        GPL-3.0
+URL:            https://github.com/storefyr/Sko-a/tree/main/harbour-gitwatch
+Source0:        %{name}-%{version}.tar.bz2
+BuildArch:      noarch
 
-Requires: sailfishsilica-qt5 >= 0.10.9
-Requires: pyotherside-qml-plugin-python3-qt5 >= 1.3.0
-Requires: python3-base
+Requires:       sailfishsilica-qt5 >= 0.10.9
+Requires:       pyotherside-qml-plugin-python3-qt5 >= 1.3.0
+Requires:       python3-base
+
+BuildRequires:  pkgconfig(sailfishapp)
+BuildRequires:  pkgconfig(Qt5Core)
+BuildRequires:  pkgconfig(Qt5Qml)
+BuildRequires:  pkgconfig(Qt5Quick)
+BuildRequires:  desktop-file-utils
 
 %description
 Få notifikationer når der er ny aktivitet på GitHub-profiler og repositories.
@@ -40,40 +46,15 @@ Kører baggrundstjek hver 30. minut via systemd timer.
 %setup -q -n %{name}-%{version}
 
 %build
+%qmake5
 
 %install
 rm -rf %{buildroot}
+%qmake5_install
 
-mkdir -p %{buildroot}%{_datadir}/%{name}
-cp -r qml %{buildroot}%{_datadir}/%{name}/
-cp -r python %{buildroot}%{_datadir}/%{name}/
-cp -r icons %{buildroot}%{_datadir}/%{name}/
-
-mkdir -p %{buildroot}%{_bindir}
-cat > %{buildroot}%{_bindir}/%{name} <<'LAUNCHER'
-#!/bin/sh
-exec /usr/bin/invoker --type=qt5 -s --splash=/usr/share/harbour-gitwatch/icons/harbour-gitwatch.png /usr/bin/sailfish-qml /usr/share/harbour-gitwatch/qml/harbour-gitwatch.qml
-LAUNCHER
-chmod 755 %{buildroot}%{_bindir}/%{name}
-
-mkdir -p %{buildroot}%{_datadir}/applications
-cat > %{buildroot}%{_datadir}/applications/%{name}.desktop <<'DESKTOP'
-[Desktop Entry]
-Type=Application
-Name=GitWatch
-Exec=%{name}
-Icon=%{name}
-X-Nemo-Application-Type=silica-qt5
-DESKTOP
-
-mkdir -p %{buildroot}%{_datadir}/icons/hicolor/86x86/apps
-cp icons/%{name}-86.png %{buildroot}%{_datadir}/icons/hicolor/86x86/apps/%{name}.png
-mkdir -p %{buildroot}%{_datadir}/icons/hicolor/108x108/apps
-cp icons/%{name}-108.png %{buildroot}%{_datadir}/icons/hicolor/108x108/apps/%{name}.png
-mkdir -p %{buildroot}%{_datadir}/icons/hicolor/128x128/apps
-cp icons/%{name}-128.png %{buildroot}%{_datadir}/icons/hicolor/128x128/apps/%{name}.png
-mkdir -p %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
-cp icons/%{name}-256.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/%{name}.png
+desktop-file-install --delete-original \
+  --dir %{buildroot}%{_datadir}/applications \
+  %{buildroot}%{_datadir}/applications/*.desktop
 
 mkdir -p %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'

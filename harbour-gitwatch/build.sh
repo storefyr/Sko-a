@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 set -e
 
 APP_NAME="harbour-gitwatch"
@@ -31,6 +32,8 @@ cp -r qml "${PACKAGE_NAME}/"
 cp -r python "${PACKAGE_NAME}/"
 cp -r icons "${PACKAGE_NAME}/"
 cp -r rpm "${PACKAGE_NAME}/"
+cp harbour-gitwatch.pro "${PACKAGE_NAME}/"
+cp harbour-gitwatch.desktop "${PACKAGE_NAME}/"
 cp README.md "${PACKAGE_NAME}/"
 cp INSTALL.md "${PACKAGE_NAME}/" 2>/dev/null || true
 cp QUICKSTART.md "${PACKAGE_NAME}/" 2>/dev/null || true
@@ -40,12 +43,14 @@ find "${PACKAGE_NAME}" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null
 find "${PACKAGE_NAME}" -name "*.pyc" -delete 2>/dev/null || true
 find "${PACKAGE_NAME}" -name ".pytest_cache" -type d -exec rm -rf {} + 2>/dev/null || true
 
-tar -cjf "${PACKAGE_NAME}.tar.bz2" "${PACKAGE_NAME}"
+if command -v bzip2 &>/dev/null; then
+    tar -cjf "${PACKAGE_NAME}.tar.bz2" "${PACKAGE_NAME}"
+    echo "Created ${PACKAGE_NAME}.tar.bz2"
+else
+    tar -czf "${PACKAGE_NAME}.tar.gz" "${PACKAGE_NAME}"
+    echo "Created ${PACKAGE_NAME}.tar.gz (bzip2 not available, using gzip)"
+fi
 
-echo "Created ${PACKAGE_NAME}.tar.bz2"
 echo ""
 echo "To build RPM locally with Sailfish SDK:"
 echo "  mb2 -t SailfishOS-latest-aarch64 build"
-echo ""
-echo "Or with sb2:"
-echo "  sb2 -t SailfishOS-latest-aarch64 -R rpmbuild -ta ${PACKAGE_NAME}.tar.bz2"
