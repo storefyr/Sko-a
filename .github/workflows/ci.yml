@@ -114,7 +114,7 @@ jobs:
       - name: Validate RPM spec syntax
         working-directory: harbour-gitwatch
         run: |
-          python3 -c "
+          python3 << 'EOF'
           with open('rpm/harbour-gitwatch.spec') as f:
               content = f.read()
           required = ['Name:', 'Version:', 'Release:', 'Summary:', 'License:', '%description', '%install', '%files']
@@ -122,13 +122,13 @@ jobs:
               assert field in content, f'Missing required field: {field}'
           assert 'BuildArch: noarch' in content, 'Missing BuildArch: noarch'
           print('RPM spec validation passed')
-          "
+          EOF
 
       - name: Validate YAML manifest
         working-directory: harbour-gitwatch
         run: |
           pip install pyyaml
-          python3 -c "
+          python3 << 'EOF'
           import yaml
           with open('rpm/harbour-gitwatch.yaml') as f:
               data = yaml.safe_load(f)
@@ -136,8 +136,8 @@ jobs:
           for field in required:
               assert field in data, f'Missing required field: {field}'
           print('YAML manifest validation passed')
-          print(f'Package: {data[\"Name\"]} v{data[\"Version\"]}-{data[\"Release\"]}')
-          "
+          print(f'Package: {data["Name"]} v{data["Version"]}-{data["Release"]}')
+          EOF
 
       - name: Check build script
         working-directory: harbour-gitwatch
@@ -230,23 +230,7 @@ jobs:
           ls -lh RPMS/*.rpm
           echo ""
           echo "RPM info:"
-          rpm -qip RPMS/*.rpm 2>/dev/null || rpm2cpio RPMS/*.rpm | cpio -t 2>/dev/null | head -20 || echo "RPM tools not available, listing contents:"
-          echo ""
-          echo "RPM contents preview:"
-          python3 -c "
-          import subprocess, glob
-          for rpm in glob.glob('RPMS/*.rpm'):
-              print(f'--- {rpm} ---')
-              try:
-                  result = subprocess.run(['rpm', '-qlp', rpm], capture_output=True, text=True)
-                  if result.returncode == 0:
-                      for line in result.stdout.split('\n')[:20]:
-                          print(line)
-                  else:
-                      print('(rpm query not available)')
-              except FileNotFoundError:
-                  print('(rpm tools not installed)')
-          "
+          rpm -qip RPMS/*.rpm 2>/dev/null || echo "RPM tools not available"
 
   build-rpm-multiarch:
     name: Build RPM (all archs)
