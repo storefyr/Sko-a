@@ -300,6 +300,68 @@ def fetch_user_events_atom(username, per_page=30):
     return events
 
 
+def get_user_repos_from_html(username):
+    url = f"{GITHUB_ATOM_BASE}/{username}?tab=repositories"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        html = resp.read().decode("utf-8")
+    repos = re.findall(rf'href="/{username}/([^"/]+)"', html)
+    seen = set()
+    unique = []
+    for r in repos:
+        if r not in seen and r not in ("settings", "repositories", "stars", "followers", "following"):
+            seen.add(r)
+            unique.append(r)
+    return unique
+
+
+def fetch_tags_atom(owner, repo, per_page=10):
+    url = f"{GITHUB_ATOM_BASE}/{owner}/{repo}/tags.atom"
+    try:
+        xml_text = fetch_atom_feed(url)
+    except Exception:
+        return []
+    root = ET.fromstring(xml_text)
+    tags = []
+    for entry in root.findall("atom:entry", ATOM_NS)[:per_page]:
+        eid = entry.find("atom:id", ATOM_NS)
+        title = entry.find("atom:title", ATOM_NS)
+        updated = entry.find("atom:updated", ATOM_NS)
+        link = entry.find("atom:link", ATOM_NS)
+        tag_name = title.text if title is not None else ""
+        link_href = link.get("href", "") if link is not None else ""
+        tags.append(
+            {
+                "id": f"tag-{eid.text if eid is not None else tag_name}",
+                "type": "ReleaseEvent",
+                "repo": f"{owner}/{repo}",
+                "summary": "Ny release",
+                "body": f"{tag_name} i {repo}",
+                "created_at": updated.text.replace(" ", "T") + "Z" if updated is not None and updated.text else "",
+                "url": link_href or f"https://github.com/{owner}/{repo}/releases",
+                "user": owner,
+            }
+        )
+    return tags
+
+
+def fetch_user_tags(username, per_page=20):
+    all_tags = []
+    try:
+        repos = get_user_repos_from_html(username)
+    except Exception as e:
+        print(f"Error getting repos for {username}: {e}")
+        return all_tags
+    for repo in repos:
+        try:
+            tags = fetch_tags_atom(username, repo, per_page=5)
+            all_tags.extend(tags)
+        except Exception as e:
+            print(f"Error fetching tags for {username}/{repo}: {e}")
+    all_tags.sort(key=lambda e: e.get("created_at", ""), reverse=True)
+    return all_tags[:per_page]
+
+
 def fetch_user_events(username, per_page=30):
     try:
         events = fetch_user_events_api(username, per_page)
@@ -308,10 +370,19 @@ def fetch_user_events(username, per_page=30):
             f = format_event(event)
             f["user"] = username
             formatted.append(f)
-        return formatted
     except RateLimitError:
         print(f"API rate limited, falling back to Atom feed for {username}")
-        return fetch_user_events_atom(username, per_page)
+        events = fetch_user_events_atom(username, per_page)
+        formatted = events
+
+    try:
+        tags = fetch_user_tags(username, per_page)
+        formatted.extend(tags)
+    except Exception as e:
+        print(f"Error fetching tags for {username}: {e}")
+
+    formatted.sort(key=lambda e: e.get("created_at", ""), reverse=True)
+    return formatted[:per_page]
 
 
 def format_event(event):

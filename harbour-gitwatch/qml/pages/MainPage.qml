@@ -151,7 +151,10 @@ Page {
         interval: 6000
         running: true
         repeat: true
-        onTriggered: refresh()
+        onTriggered: {
+            checkForNewEvents()
+            refresh()
+        }
     }
 
     function formatTime(isoString) {
@@ -183,9 +186,21 @@ Page {
         return date.toLocaleDateString("da-DK")
     }
 
-    property var knownEventIds: []
-    property bool firstLoad: true
     property bool notificationsEnabled: true
+
+    function checkForNewEvents() {
+        appWindow.py.call("gitwatch.github_client.check_for_updates", [], function(newEvents) {
+            if (newEvents.length > 0) {
+                var firstEvent = newEvents[0]
+                var summaryText = "GitWatch: " + firstEvent.summary
+                var bodyText = (firstEvent.user || "") + ": " + firstEvent.body
+                if (newEvents.length > 1) {
+                    bodyText += " (+" + (newEvents.length - 1) + " flere)"
+                }
+                showNotification(summaryText, bodyText)
+            }
+        })
+    }
 
     function showNotification(summaryText, bodyText) {
         appWindow.py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
@@ -205,34 +220,6 @@ Page {
     function refresh() {
         loading = true
         appWindow.py.call("gitwatch.github_client.get_recent_activity", [30], function(result) {
-            var newIds = []
-            for (var i = 0; i < result.length; i++) {
-                newIds.push(result[i].id)
-            }
-
-            if (!firstLoad && knownEventIds.length > 0) {
-                var newCount = 0
-                var firstNewEvent = null
-                for (var j = 0; j < result.length; j++) {
-                    if (knownEventIds.indexOf(result[j].id) === -1) {
-                        newCount++
-                        if (!firstNewEvent) {
-                            firstNewEvent = result[j]
-                        }
-                    }
-                }
-                if (newCount > 0 && firstNewEvent) {
-                    var summaryText = "GitWatch: " + firstNewEvent.summary
-                    var bodyText = firstNewEvent.user + ": " + firstNewEvent.body
-                    if (newCount > 1) {
-                        bodyText += " (+" + (newCount - 1) + " flere)"
-                    }
-                    showNotification(summaryText, bodyText)
-                }
-            }
-            firstLoad = false
-            knownEventIds = newIds
-
             activityModel.clear()
             for (var k = 0; k < result.length; k++) {
                 var item = result[k]

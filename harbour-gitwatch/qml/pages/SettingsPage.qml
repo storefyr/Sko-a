@@ -106,13 +106,36 @@ Page {
             }
 
             SectionHeader {
+                text: "Avanceret"
+            }
+
+            Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Nulstil sete hændelser"
+                onClicked: {
+                    appWindow.py.call("gitwatch.github_client.reset_seen_events", [], function() {
+                        remorseAction("Nulstillet", function() {})
+                    })
+                }
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                text: "Nulstil listen over sete hændelser, så alle eksisterende aktiviteter vises igen."
+                color: Theme.secondaryColor
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
+            }
+
+            SectionHeader {
                 text: "Om"
             }
 
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "GitWatch 0.2.6\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
+                text: "GitWatch 0.2.7\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
