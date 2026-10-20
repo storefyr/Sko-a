@@ -136,21 +136,33 @@ def parse_atom_title_to_event(title_text, username, content_html="", entry_id=""
 
     pushed_match = re.match(r"^(\S+) pushed (.+)$", title_text)
     if pushed_match:
-        repo_name = pushed_match.group(2)
+        pushed_to = pushed_match.group(2)
+        branch_match = re.search(r"@([^@]+)$", pushed_to)
+        branch = branch_match.group(1) if branch_match else pushed_to
+        repo_name = pushed_to.split("@")[0] if "@" in pushed_to else pushed_to
+        commit_match = re.search(r"(\d+) new commit", content_html)
+        commit_count = commit_match.group(1) if commit_match else ""
+        body = f"{commit_count} commits" if commit_count else "Nye commits"
         return {
             "type": "PushEvent",
-            "summary": f"Push til {repo_name}",
-            "body": f"Nye commits i {repo_name}",
+            "summary": f"Push til {branch}",
+            "body": body,
             "repo": repo_from_link or f"{username}/{repo_name}",
         }
 
     created_branch_match = re.match(r"^(\S+) created a branch$", title_text)
     if created_branch_match:
-        repo = repo_from_link or username
+        branch_match = re.search(r"in ([^ ]+):([^ ]+)$", content_html)
+        if branch_match:
+            repo = branch_match.group(1)
+            branch = branch_match.group(2)
+        else:
+            repo = repo_from_link or username
+            branch = "?"
         return {
             "type": "CreateEvent",
-            "summary": "Oprettede ny branch",
-            "body": repo,
+            "summary": "Ny branch",
+            "body": branch,
             "repo": repo,
         }
 
@@ -159,8 +171,8 @@ def parse_atom_title_to_event(title_text, username, content_html="", entry_id=""
         repo = repo_from_link or username
         return {
             "type": "CreateEvent",
-            "summary": "Oprettede nyt repository",
-            "body": repo,
+            "summary": "Nyt repository",
+            "body": repo.split("/")[-1] if "/" in repo else repo,
             "repo": repo,
         }
 
@@ -239,16 +251,27 @@ def parse_atom_title_to_event(title_text, username, content_html="", entry_id=""
     comment_match = re.match(r"^(\S+) commented on (.+)$", title_text)
     if comment_match:
         return {
-            "type": "CommentEvent",
+            "type": "CommitCommentEvent",
             "summary": "Ny kommentar",
             "body": comment_match.group(2),
             "repo": repo_from_link or username,
         }
 
+    deleted_match = re.match(r"^(\S+) deleted (.+)$", title_text)
+    if deleted_match:
+        deleted_what = deleted_match.group(2)
+        repo = repo_from_link or username
+        return {
+            "type": "DeleteEvent",
+            "summary": "Slettede",
+            "body": deleted_what.split("@")[0] if "@" in deleted_what else deleted_what,
+            "repo": repo,
+        }
+
     return {
         "type": "Activity",
-        "summary": title_text.replace(username, "").strip() or title_text[:50],
-        "body": title_text,
+        "summary": title_text.replace(username + " ", "").strip()[:40],
+        "body": repo_from_link or username,
         "repo": repo_from_link or username,
     }
 
