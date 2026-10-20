@@ -175,12 +175,36 @@ Page {
         return date.toLocaleDateString("da-DK")
     }
 
+    property var knownEventIds: []
+    property bool firstLoad: true
+
     function refresh() {
         loading = true
         appWindow.py.call("gitwatch.github_client.get_recent_activity", [30], function(result) {
-            activityModel.clear()
+            var newIds = []
             for (var i = 0; i < result.length; i++) {
-                var item = result[i]
+                newIds.push(result[i].id)
+            }
+
+            if (!firstLoad) {
+                var newCount = 0
+                for (var j = 0; j < result.length; j++) {
+                    if (knownEventIds.indexOf(result[j].id) === -1) {
+                        newCount++
+                    }
+                }
+                if (newCount > 0) {
+                    notification.summary = "GitWatch"
+                    notification.body = newCount + " ny(e) aktivitet(er)"
+                    notification.publish()
+                }
+            }
+            firstLoad = false
+            knownEventIds = newIds
+
+            activityModel.clear()
+            for (var k = 0; k < result.length; k++) {
+                var item = result[k]
                 item.dateGroup = formatDateGroup(item.created_at)
                 activityModel.append(item)
             }
