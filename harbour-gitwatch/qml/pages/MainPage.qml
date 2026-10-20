@@ -29,6 +29,8 @@ Page {
     property var watchedUsers: []
     property bool loading: false
 
+    property bool notificationSound: true
+
     Notification {
         id: notification
         appName: "harbour-gitwatch"
@@ -38,6 +40,7 @@ Page {
         previewBody: ""
         summary: ""
         body: ""
+        sound: mainPage.notificationSound ? "default" : ""
     }
 
     SilicaListView {
@@ -211,11 +214,15 @@ Page {
                 console.log("Notifications disabled in settings, skipping")
                 return
             }
-            notification.previewSummary = summaryText
-            notification.previewBody = bodyText
-            notification.summary = summaryText
-            notification.body = bodyText
-            notification.publish()
+            appWindow.py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(soundEnabled) {
+                notificationSound = soundEnabled
+                notification.sound = soundEnabled ? "default" : ""
+                notification.previewSummary = summaryText
+                notification.previewBody = bodyText
+                notification.summary = summaryText
+                notification.body = bodyText
+                notification.publish()
+            })
         })
     }
 

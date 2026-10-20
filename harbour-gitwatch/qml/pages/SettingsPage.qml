@@ -25,6 +25,7 @@ Page {
 
     property var watchedUsers: []
     property bool notificationsEnabled: true
+    property bool notificationSound: true
 
     SilicaFlickable {
         anchors.fill: parent
@@ -102,6 +103,16 @@ Page {
                 checked: notificationsEnabled
                 onCheckedChanged: {
                     appWindow.py.call("gitwatch.github_client.set_notifications_enabled", [checked], function() {})
+                }
+            }
+
+            TextSwitch {
+                id: soundSwitch
+                text: "Afspil lyd"
+                description: "Afspil alarmlyd ved notifikationer"
+                checked: notificationSound
+                onCheckedChanged: {
+                    appWindow.py.call("gitwatch.github_client.set_notification_sound", [checked], function() {})
                 }
             }
 
@@ -211,7 +222,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "GitWatch 0.2.8\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
+                text: "GitWatch 0.2.9\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
@@ -280,6 +291,10 @@ Page {
         appWindow.py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
             notificationsEnabled = enabled
             notifSwitch.checked = enabled
+        })
+        appWindow.py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(enabled) {
+            notificationSound = enabled
+            soundSwitch.checked = enabled
         })
     }
 

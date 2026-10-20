@@ -55,6 +55,7 @@ def load_state():
         "seen_events": [],
         "watched_users": ["storefyr"],
         "notifications_enabled": True,
+        "notification_sound": True,
         "notification_filter": ["PushEvent", "PullRequestEvent", "IssuesEvent", "ReleaseEvent", "CreateEvent", "DeleteEvent", "WatchEvent", "ForkEvent", "CommitCommentEvent"],
     }
 
@@ -321,7 +322,37 @@ def get_user_repos_from_html(username):
     return unique
 
 
-def fetch_tags_atom(owner, repo, per_page=10):
+def fetch_releases_api(owner, repo, per_page=10):
+    url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/releases?per_page={per_page}"
+    releases = api_get(url)
+    events = []
+    for release in releases:
+        if release.get("draft", True):
+            continue
+        assets = release.get("assets", [])
+        if len(assets) == 0:
+            continue
+        tag_name = release.get("tag_name", "?")
+        published_at = release.get("published_at", release.get("created_at", ""))
+        html_url = release.get("html_url", f"https://github.com/{owner}/{repo}/releases")
+        asset_names = [a.get("name", "") for a in assets]
+        rpm_count = sum(1 for n in asset_names if n.endswith(".rpm"))
+        events.append(
+            {
+                "id": f"release-{release['id']}",
+                "type": "ReleaseEvent",
+                "repo": f"{owner}/{repo}",
+                "summary": "Ny release",
+                "body": f"{tag_name} i {repo} ({rpm_count} RPM{'er' if rpm_count != 1 else ''})",
+                "created_at": published_at,
+                "url": html_url,
+                "user": owner,
+            }
+        )
+    return events
+
+
+def fetch_tags_atom(owner, repo, per_page=10, min_age_minutes=5):
     url = f"{GITHUB_ATOM_BASE}/{owner}/{repo}/tags.atom"
     try:
         xml_text = fetch_atom_feed(url)
@@ -329,6 +360,7 @@ def fetch_tags_atom(owner, repo, per_page=10):
         return []
     root = ET.fromstring(xml_text)
     tags = []
+    now = datetime.now(timezone.utc)
     for entry in root.findall("atom:entry", ATOM_NS)[:per_page]:
         eid = entry.find("atom:id", ATOM_NS)
         title = entry.find("atom:title", ATOM_NS)
@@ -336,6 +368,18 @@ def fetch_tags_atom(owner, repo, per_page=10):
         link = entry.find("atom:link", ATOM_NS)
         tag_name = title.text if title is not None else ""
         link_href = link.get("href", "") if link is not None else ""
+        created_str = updated.text if updated is not None and updated.text else ""
+        if " " in created_str and "T" not in created_str:
+            created_str = created_str.replace(" ", "T")
+        if created_str and not created_str.endswith("Z") and "+" not in created_str:
+            created_str += "Z"
+        try:
+            created_dt = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+            age_minutes = (now - created_dt).total_seconds() / 60
+            if age_minutes < min_age_minutes:
+                continue
+        except Exception:
+            pass
         tags.append(
             {
                 "id": f"tag-{eid.text if eid is not None else tag_name}",
@@ -343,7 +387,7 @@ def fetch_tags_atom(owner, repo, per_page=10):
                 "repo": f"{owner}/{repo}",
                 "summary": "Ny release",
                 "body": f"{tag_name} i {repo}",
-                "created_at": updated.text.replace(" ", "T") + "Z" if updated is not None and updated.text else "",
+                "created_at": created_str,
                 "url": link_href or f"https://github.com/{owner}/{repo}/releases",
                 "user": owner,
             }
@@ -358,14 +402,34 @@ def fetch_user_tags(username, per_page=20):
     except Exception as e:
         print(f"Error getting repos for {username}: {e}")
         return all_tags
+
+    api_failed = False
     for repo in repos:
+        if not api_failed:
+            try:
+                releases = fetch_releases_api(username, repo, per_page=5)
+                all_tags.extend(releases)
+                continue
+            except RateLimitError:
+                print(f"API rate limited for {username}/{repo}, falling back to tags.atom")
+                api_failed = True
+            except Exception as e:
+                print(f"Error fetching releases API for {username}/{repo}: {e}")
+
         try:
-            tags = fetch_tags_atom(username, repo, per_page=5)
+            tags = fetch_tags_atom(username, repo, per_page=5, min_age_minutes=5)
             all_tags.extend(tags)
         except Exception as e:
             print(f"Error fetching tags for {username}/{repo}: {e}")
+
     all_tags.sort(key=lambda e: e.get("created_at", ""), reverse=True)
-    return all_tags[:per_page]
+    seen_ids = set()
+    unique_tags = []
+    for tag in all_tags:
+        if tag["id"] not in seen_ids:
+            seen_ids.add(tag["id"])
+            unique_tags.append(tag)
+    return unique_tags[:per_page]
 
 
 def fetch_user_events(username, per_page=30):
@@ -552,6 +616,18 @@ def set_notifications_enabled(enabled):
 def are_notifications_enabled():
     state = load_state()
     return state.get("notifications_enabled", True)
+
+
+def is_notification_sound_enabled():
+    state = load_state()
+    return state.get("notification_sound", True)
+
+
+def set_notification_sound(enabled):
+    state = load_state()
+    state["notification_sound"] = enabled
+    save_state(state)
+    return enabled
 
 
 def get_notification_filter():
