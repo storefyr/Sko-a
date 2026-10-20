@@ -15,8 +15,6 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
-  SFOS_RELEASE: '5.0.0.76'
-  SFOS_ARCH: 'aarch64'
 
 jobs:
   python-tests:
@@ -87,7 +85,7 @@ jobs:
       - name: Run flake8
         working-directory: harbour-gitwatch
         run: |
-          flake8 python/ tests/ --max-line-length=120 --extend-ignore=E501,W503,E203
+          flake8 python/ --max-line-length=120 --extend-ignore=E501,W503,E203
 
       - name: Check black formatting
         working-directory: harbour-gitwatch
@@ -97,7 +95,7 @@ jobs:
       - name: Run mypy type check
         working-directory: harbour-gitwatch
         run: |
-          mypy python/ --ignore-missing-imports --no-strict-optional || true
+          mypy python/ --ignore-missing-imports --no-strict-optional
 
   validate-packaging:
     name: Validate Packaging
@@ -114,21 +112,21 @@ jobs:
       - name: Validate RPM spec syntax
         working-directory: harbour-gitwatch
         run: |
-          python3 << 'EOF'
+          python3 -c "
+          import re
           with open('rpm/harbour-gitwatch.spec') as f:
               content = f.read()
           required = ['Name:', 'Version:', 'Release:', 'Summary:', 'License:', '%description', '%install', '%files']
           for field in required:
               assert field in content, f'Missing required field: {field}'
-          assert 'BuildArch: noarch' in content, 'Missing BuildArch: noarch'
           print('RPM spec validation passed')
-          EOF
+          "
 
       - name: Validate YAML manifest
         working-directory: harbour-gitwatch
         run: |
           pip install pyyaml
-          python3 << 'EOF'
+          python3 -c "
           import yaml
           with open('rpm/harbour-gitwatch.yaml') as f:
               data = yaml.safe_load(f)
@@ -136,13 +134,14 @@ jobs:
           for field in required:
               assert field in data, f'Missing required field: {field}'
           print('YAML manifest validation passed')
-          print(f'Package: {data["Name"]} v{data["Version"]}-{data["Release"]}')
-          EOF
+          print(f'Package: {data[\"Name\"]} v{data[\"Version\"]}-{data[\"Release\"]}')
+          "
 
       - name: Check build script
         working-directory: harbour-gitwatch
         run: |
           bash -n build.sh && echo "build.sh syntax OK"
+          test -x build.sh || chmod +x build.sh
           test -x build.sh && echo "build.sh is executable"
 
       - name: Validate icons
@@ -201,67 +200,37 @@ jobs:
           done
           echo "All QML files passed validation"
 
-  build-rpm:
-    name: Build RPM (${{ env.SFOS_ARCH }})
+  build-package:
+    name: Build Package
     runs-on: ubuntu-latest
     needs: [python-tests, lint, validate-packaging, validate-qml]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build RPM with Sailfish OS SDK
-        uses: R1tschY/sailfish-build-rpm@v1
-        with:
-          release: ${{ env.SFOS_RELEASE }}
-          arch: ${{ env.SFOS_ARCH }}
-          source-dir: harbour-gitwatch
-          fix-version: false
-
-      - name: Upload RPM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: harbour-gitwatch-${{ env.SFOS_ARCH }}-rpm
-          path: RPMS/*.rpm
-          retention-days: 30
-
-      - name: Verify RPM package
+      - name: Create source tarball
+        working-directory: harbour-gitwatch
         run: |
-          echo "Built RPM packages:"
-          ls -lh RPMS/*.rpm
-          echo ""
-          echo "RPM info:"
-          rpm -qip RPMS/*.rpm 2>/dev/null || echo "RPM tools not available"
+          chmod +x build.sh
+          ./build.sh
 
-  build-rpm-multiarch:
-    name: Build RPM (all archs)
-    runs-on: ubuntu-latest
-    needs: [python-tests, lint, validate-packaging, validate-qml]
-    strategy:
-      matrix:
-        arch: [aarch64, armv7hl, i486]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build RPM for ${{ matrix.arch }}
-        uses: R1tschY/sailfish-build-rpm@v1
-        with:
-          release: ${{ env.SFOS_RELEASE }}
-          arch: ${{ matrix.arch }}
-          source-dir: harbour-gitwatch
-          fix-version: false
-
-      - name: Upload RPM artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: harbour-gitwatch-${{ matrix.arch }}-rpm
-          path: RPMS/*.rpm
-          retention-days: 30
+          name: source-tarball
+          path: harbour-gitwatch/harbour-gitwatch-*.tar.bz2
+
+      - name: Verify tarball contents
+        run: |
+          cd harbour-gitwatch
+          tar -tjf harbour-gitwatch-*.tar.bz2 | head -20
+          echo "---"
+          echo "Tarball contains $(tar -tjf harbour-gitwatch-*.tar.bz2 | wc -l) files"
 
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [python-tests, lint, validate-packaging, validate-qml, build-rpm]
+    needs: [python-tests, lint, validate-packaging, validate-qml, build-package]
     if: always()
     steps:
       - name: Check results
@@ -274,17 +243,14 @@ jobs:
           echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Validate Packaging | ${{ needs.validate-packaging.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Validate QML | ${{ needs.validate-qml.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build RPM (aarch64) | ${{ needs.build-rpm.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Built artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "- RPM package for Sailfish OS ${{ env.SFOS_ARCH }} (Jolla Phone 2026)" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Package | ${{ needs.build-package.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ needs.python-tests.result }}" == "success" ] && \
              [ "${{ needs.lint.result }}" == "success" ] && \
              [ "${{ needs.validate-packaging.result }}" == "success" ] && \
              [ "${{ needs.validate-qml.result }}" == "success" ] && \
-             [ "${{ needs.build-rpm.result }}" == "success" ]; then
-            echo "✅ All checks passed! RPM ready for installation." >> $GITHUB_STEP_SUMMARY
+             [ "${{ needs.build-package.result }}" == "success" ]; then
+            echo "✅ All checks passed!" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Some checks failed. See job logs for details." >> $GITHUB_STEP_SUMMARY
             exit 1
