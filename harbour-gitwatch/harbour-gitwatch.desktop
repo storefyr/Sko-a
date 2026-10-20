@@ -5,3 +5,8 @@ Icon=harbour-gitwatch
 Exec=harbour-gitwatch
 Name=GitWatch
 Name[da]=GitWatch
+
+[X-Sailjail]
+Permissions=Internet;Notifications
+OrganizationName=com.storefyr
+ApplicationName=harbour-gitwatch

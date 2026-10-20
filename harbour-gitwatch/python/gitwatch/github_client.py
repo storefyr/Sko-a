@@ -25,7 +25,12 @@ from datetime import datetime, timezone
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_ATOM_BASE = "https://github.com"
 USER_AGENT = "harbour-gitwatch/0.1 (Sailfish OS)"
-DATA_DIR = os.path.expanduser("~/.local/share/harbour-gitwatch")
+def _get_data_dir():
+    xdg_data = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+    return os.path.join(xdg_data, "com.storefyr", "harbour-gitwatch")
+
+
+DATA_DIR = _get_data_dir()
 STATE_FILE = os.path.join(DATA_DIR, "state.json")
 MAX_EVENTS_STORED = 100
 ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
@@ -458,7 +463,7 @@ def publish_notification(summary, body, app_name="GitWatch"):
             "org.freedesktop.Notifications.Notify",
             f"string:{app_name}",
             "uint32:0",
-            "string:image://theme/icon-lock-information",
+            "string:harbour-gitwatch",
             f"string:{summary}",
             f"string:{body}",
             "array:string:",

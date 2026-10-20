@@ -71,10 +71,11 @@ install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
 Description=GitWatch Background Check
+After=lipstick.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/sailfish-qml /usr/share/harbour-gitwatch/qml/background-check.qml
+ExecStart=/usr/bin/sailjail -p harbour-gitwatch.desktop /usr/bin/invoker --type=qt5 -s /usr/bin/sailfish-qml /usr/share/harbour-gitwatch/qml/background-check.qml
 SERVICE
 
 cat > %{buildroot}%{_userunitdir}/%{name}.timer <<'TIMER'
