@@ -25,7 +25,6 @@ Group:          Applications/Internet
 License:        GPL-3.0
 URL:            https://github.com/storefyr/Sko-a/tree/main/harbour-gitwatch
 Source0:        %{name}-%{version}.tar.bz2
-BuildArch:      noarch
 
 Requires:       sailfishsilica-qt5 >= 0.10.9
 Requires:       pyotherside-qml-plugin-python3-qt5 >= 1.3.0
@@ -95,6 +94,9 @@ systemctl --user daemon-reload || true
 %{_bindir}/%{name}
 %{_datadir}/%{name}
 %{_datadir}/applications/%{name}.desktop
-%{_datadir}/icons/hicolor/*/apps/%{name}.png
+%{_datadir}/icons/hicolor/86x86/apps/%{name}.png
+%{_datadir}/icons/hicolor/108x108/apps/%{name}.png
+%{_datadir}/icons/hicolor/128x128/apps/%{name}.png
+%{_datadir}/icons/hicolor/256x256/apps/%{name}.png
 %{_userunitdir}/%{name}.service
 %{_userunitdir}/%{name}.timer
