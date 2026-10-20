@@ -113,28 +113,12 @@ jobs:
         working-directory: harbour-gitwatch
         run: |
           python3 -c "
-          import re
           with open('rpm/harbour-gitwatch.spec') as f:
               content = f.read()
           required = ['Name:', 'Version:', 'Release:', 'Summary:', 'License:', '%description', '%install', '%files']
           for field in required:
               assert field in content, f'Missing required field: {field}'
           print('RPM spec validation passed')
-          "
-
-      - name: Validate YAML manifest
-        working-directory: harbour-gitwatch
-        run: |
-          pip install pyyaml
-          python3 -c "
-          import yaml
-          with open('rpm/harbour-gitwatch.yaml') as f:
-              data = yaml.safe_load(f)
-          required = ['Name', 'Summary', 'Version', 'Release', 'License']
-          for field in required:
-              assert field in data, f'Missing required field: {field}'
-          print('YAML manifest validation passed')
-          print(f'Package: {data[\"Name\"]} v{data[\"Version\"]}-{data[\"Release\"]}')
           "
 
       - name: Check build script
@@ -243,7 +227,6 @@ jobs:
           echo ""
           echo "--- Key files check ---"
           tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "rpm/harbour-gitwatch.spec" && echo "✓ spec file present"
-          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "rpm/harbour-gitwatch.yaml" && echo "✓ yaml file present"
           tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "harbour-gitwatch.pro" && echo "✓ pro file present"
           tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "harbour-gitwatch.desktop" && echo "✓ desktop file present"
           tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "qml/harbour-gitwatch.qml" && echo "✓ QML main file present"

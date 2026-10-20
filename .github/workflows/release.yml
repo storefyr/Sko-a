@@ -44,7 +44,6 @@ jobs:
         run: |
           VERSION="${{ steps.get-version.outputs.version }}"
           sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
-          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.yaml
           sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
           echo "Updated version to ${VERSION}"
 
@@ -73,7 +72,6 @@ jobs:
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
           sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
-          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.yaml
           sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
 
       - name: Build source tarball
