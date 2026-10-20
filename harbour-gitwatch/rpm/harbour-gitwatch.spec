@@ -55,7 +55,19 @@ desktop-file-install --delete-original \
   --dir %{buildroot}%{_datadir}/applications \
   %{buildroot}%{_datadir}/applications/*.desktop
 
-mkdir -p %{buildroot}%{_userunitdir}
+install -d %{buildroot}%{_datadir}/icons/hicolor/86x86/apps
+install -d %{buildroot}%{_datadir}/icons/hicolor/108x108/apps
+install -d %{buildroot}%{_datadir}/icons/hicolor/128x128/apps
+install -d %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
+install -m 644 icons/%{name}-86.png %{buildroot}%{_datadir}/icons/hicolor/86x86/apps/%{name}.png
+install -m 644 icons/%{name}-108.png %{buildroot}%{_datadir}/icons/hicolor/108x108/apps/%{name}.png
+install -m 644 icons/%{name}-128.png %{buildroot}%{_datadir}/icons/hicolor/128x128/apps/%{name}.png
+install -m 644 icons/%{name}-256.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/%{name}.png
+
+install -d %{buildroot}%{_datadir}/%{name}
+cp -r python %{buildroot}%{_datadir}/%{name}/
+
+install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
 Description=GitWatch Background Check
