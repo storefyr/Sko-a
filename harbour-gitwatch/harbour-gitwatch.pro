@@ -14,23 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# NOTICE:
-#
-# Application name defined in TARGET has a corresponding QML filename.
-# If name defined in TARGET is changed, the following needs to be done
-# to match new name:
-#   - corresponding QML filename must be changed
-#   - desktop icon filename must be changed
-#   - desktop filename must be changed
-#   - icon definition filename in desktop file must be changed
-
 TARGET = harbour-gitwatch
 
 CONFIG += sailfishapp
 
 QT += qml quick
 
-SOURCES +=
+SOURCES += src/main.cpp
 
 OTHER_FILES += \
     qml/harbour-gitwatch.qml \
@@ -40,7 +30,6 @@ OTHER_FILES += \
     qml/background-check.qml \
     python/gitwatch/__init__.py \
     python/gitwatch/github_client.py \
-    rpm/harbour-gitwatch.yaml \
     rpm/harbour-gitwatch.spec \
     harbour-gitwatch.desktop \
     icons/*.png \

@@ -442,8 +442,9 @@ class TestPackagingFiles(unittest.TestCase):
     def test_spec_file_exists(self):
         self.assertTrue(os.path.exists(os.path.join(self.RPM_DIR, "harbour-gitwatch.spec")))
 
-    def test_yaml_file_exists(self):
-        self.assertTrue(os.path.exists(os.path.join(self.RPM_DIR, "harbour-gitwatch.yaml")))
+    def test_desktop_file_exists(self):
+        desktop_path = os.path.join(os.path.dirname(__file__), "..", "harbour-gitwatch.desktop")
+        self.assertTrue(os.path.exists(desktop_path))
 
     def test_spec_has_required_fields(self):
         with open(os.path.join(self.RPM_DIR, "harbour-gitwatch.spec")) as f:
