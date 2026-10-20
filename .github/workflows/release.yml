@@ -13,7 +13,7 @@ on:
 
 env:
   APP_NAME: harbour-gitwatch
-  SFOS_RELEASE: '5.0.0.76'
+  SFOS_VERSION: '5.0.0.43'
 
 jobs:
   prepare-release:
@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get-version.outputs.version }}
-      tarball: ${{ steps.create-tarball.outputs.tarball }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,7 +44,6 @@ jobs:
         run: |
           VERSION="${{ steps.get-version.outputs.version }}"
           sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
-          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.yaml
           sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
           echo "Updated version to ${VERSION}"
 
@@ -55,18 +53,8 @@ jobs:
           pip install pytest pytest-mock
           python -m pytest tests/ -v --tb=short
 
-      - name: Create source tarball
-        id: create-tarball
-        working-directory: harbour-gitwatch
-        run: |
-          chmod +x build.sh
-          ./build.sh
-          TARBALL=$(ls harbour-gitwatch-*.tar.bz2)
-          echo "tarball=${TARBALL}" >> $GITHUB_OUTPUT
-          echo "Created: ${TARBALL}"
-
   build-rpms:
-    name: Build RPMs
+    name: Build RPM (${{ matrix.arch }})
     runs-on: ubuntu-latest
     needs: prepare-release
     strategy:
@@ -76,39 +64,56 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bzip2
+
       - name: Update version
         working-directory: harbour-gitwatch
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
           sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
-          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.yaml
+          sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
 
-      - name: Build RPM for ${{ matrix.arch }}
-        uses: R1tschY/sailfish-build-rpm@v1
-        with:
-          release: ${{ env.SFOS_RELEASE }}
-          arch: ${{ matrix.arch }}
-          source-dir: harbour-gitwatch
-          fix-version: false
+      - name: Build source tarball
+        working-directory: harbour-gitwatch
+        run: |
+          chmod +x build.sh
+          ./build.sh
+          ls -la *.tar.bz2
+
+      - name: Build RPM with Sailfish SDK
+        working-directory: harbour-gitwatch
+        run: |
+          sudo chmod -R a+w .
+          docker run --rm --privileged \
+            -v "$(pwd):/home/mersdk/project" \
+            -w /home/mersdk/project \
+            "coderus/sailfishos-platform-sdk-${{ matrix.arch }}:${{ env.SFOS_VERSION }}" \
+            /bin/bash -c "
+              set -ex
+              mb2 -t SailfishOS-${{ env.SFOS_VERSION }}-${{ matrix.arch }} build
+              mkdir -p /home/mersdk/project/RPMS
+              cp -v RPMS/*.rpm /home/mersdk/project/RPMS/ || true
+            "
 
       - name: Rename RPM with version
         run: |
-          mkdir -p dist
-          for rpm in RPMS/*.rpm; do
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          mkdir -p harbour-gitwatch/dist
+          for rpm in harbour-gitwatch/RPMS/*.rpm; do
             if [ -f "$rpm" ]; then
-              VERSION="${{ needs.prepare-release.outputs.version }}"
-              newname="dist/harbour-gitwatch-${VERSION}-${{ matrix.arch }}.rpm"
+              newname="harbour-gitwatch/dist/harbour-gitwatch-${VERSION}-${{ matrix.arch }}.rpm"
               mv "$rpm" "$newname"
               echo "Renamed: $rpm -> $newname"
             fi
           done
-          ls -lh dist/
+          ls -lh harbour-gitwatch/dist/
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
           name: rpm-${{ matrix.arch }}
-          path: dist/*.rpm
+          path: harbour-gitwatch/dist/*.rpm
           retention-days: 90
 
   create-github-release:
@@ -118,12 +123,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download source tarball
-        uses: actions/download-artifact@v4
-        with:
-          name: release-tarball
-          path: dist/
-        if: false
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bzip2
 
       - name: Download all RPMs
         uses: actions/download-artifact@v4
@@ -135,9 +139,9 @@ jobs:
       - name: Create source tarball
         working-directory: harbour-gitwatch
         run: |
-          chmod +x build.sh
           VERSION="${{ needs.prepare-release.outputs.version }}"
           sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
+          chmod +x build.sh
           ./build.sh
           cp harbour-gitwatch-*.tar.bz2 ../../dist/
 
@@ -163,10 +167,13 @@ jobs:
           pkcon install-local harbour-gitwatch-${VERSION}-aarch64.rpm
           \`\`\`
 
-          Or see [INSTALL.md](https://github.com/storefyr/Sko-a/blob/main/harbour-gitwatch/INSTALL.md) for detailed instructions.
+          ### Supported Architectures
+          - **aarch64** - Jolla Phone 2026 (Sailfish OS 5.0, 64-bit ARM)
+          - **armv7hl** - 32-bit ARM devices (older Jolla phones)
+          - **i486** - Sailfish OS Emulator (x86)
 
           ### Requirements
-          - Sailfish OS 5.x (Jolla Phone 2026)
+          - Sailfish OS 5.x
           - pyotherside-qml-plugin-python3-qt5
           - python3-base
 

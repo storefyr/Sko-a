@@ -1,0 +1,159 @@
+name: Build RPM
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'harbour-gitwatch/**'
+      - '.github/workflows/build-rpm.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'harbour-gitwatch/**'
+      - '.github/workflows/build-rpm.yml'
+  workflow_dispatch:
+
+env:
+  SFOS_VERSION: '5.0.0.43'
+  APP_NAME: 'harbour-gitwatch'
+  APP_VERSION: '0.1.0'
+
+jobs:
+  build-rpm-aarch64:
+    name: Build RPM (aarch64 - Jolla Phone 2026)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bzip2
+
+      - name: Build source tarball
+        run: |
+          cd harbour-gitwatch
+          chmod +x build.sh
+          ./build.sh
+          ls -la *.tar.bz2
+
+      - name: Build RPM with Sailfish SDK
+        run: |
+          cd harbour-gitwatch
+          sudo chmod -R a+w .
+          docker run --rm --privileged \
+            -v "$(pwd):/home/mersdk/project" \
+            -w /home/mersdk/project \
+            "coderus/sailfishos-platform-sdk-aarch64:${{ env.SFOS_VERSION }}" \
+            /bin/bash -c "
+              set -ex
+              mb2 -t SailfishOS-${{ env.SFOS_VERSION }}-aarch64 build
+              mkdir -p /home/mersdk/project/RPMS
+              cp -v RPMS/*.rpm /home/mersdk/project/RPMS/ || true
+            "
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbour-gitwatch-${{ env.APP_VERSION }}-aarch64
+          path: harbour-gitwatch/RPMS/*.rpm
+          retention-days: 30
+
+  build-rpm-armv7hl:
+    name: Build RPM (armv7hl - 32-bit ARM)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bzip2
+
+      - name: Build source tarball
+        run: |
+          cd harbour-gitwatch
+          chmod +x build.sh
+          ./build.sh
+          ls -la *.tar.bz2
+
+      - name: Build RPM with Sailfish SDK
+        run: |
+          cd harbour-gitwatch
+          sudo chmod -R a+w .
+          docker run --rm --privileged \
+            -v "$(pwd):/home/mersdk/project" \
+            -w /home/mersdk/project \
+            "coderus/sailfishos-platform-sdk-armv7hl:${{ env.SFOS_VERSION }}" \
+            /bin/bash -c "
+              set -ex
+              mb2 -t SailfishOS-${{ env.SFOS_VERSION }}-armv7hl build
+              mkdir -p /home/mersdk/project/RPMS
+              cp -v RPMS/*.rpm /home/mersdk/project/RPMS/ || true
+            "
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbour-gitwatch-${{ env.APP_VERSION }}-armv7hl
+          path: harbour-gitwatch/RPMS/*.rpm
+          retention-days: 30
+
+  build-rpm-i486:
+    name: Build RPM (i486 - Emulator)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bzip2
+
+      - name: Build source tarball
+        run: |
+          cd harbour-gitwatch
+          chmod +x build.sh
+          ./build.sh
+          ls -la *.tar.bz2
+
+      - name: Build RPM with Sailfish SDK
+        run: |
+          cd harbour-gitwatch
+          sudo chmod -R a+w .
+          docker run --rm --privileged \
+            -v "$(pwd):/home/mersdk/project" \
+            -w /home/mersdk/project \
+            "coderus/sailfishos-platform-sdk-i486:${{ env.SFOS_VERSION }}" \
+            /bin/bash -c "
+              set -ex
+              mb2 -t SailfishOS-${{ env.SFOS_VERSION }}-i486 build
+              mkdir -p /home/mersdk/project/RPMS
+              cp -v RPMS/*.rpm /home/mersdk/project/RPMS/ || true
+            "
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbour-gitwatch-${{ env.APP_VERSION }}-i486
+          path: harbour-gitwatch/RPMS/*.rpm
+          retention-days: 30
+
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-rpm-aarch64, build-rpm-armv7hl, build-rpm-i486]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## RPM Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Architecture | Device | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------------|--------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| aarch64 | Jolla Phone 2026 | ${{ needs.build-rpm-aarch64.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| armv7hl | 32-bit ARM devices | ${{ needs.build-rpm-armv7hl.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| i486 | Emulator | ${{ needs.build-rpm-i486.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.build-rpm-aarch64.result }}" = "success" ]; then
+            echo "✅ aarch64 RPM ready for Jolla Phone 2026 (Sailfish OS 5.0)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ aarch64 build failed" >> $GITHUB_STEP_SUMMARY
+          fi
