@@ -477,48 +477,23 @@ def are_notifications_enabled():
     return state.get("notifications_enabled", True)
 
 
-def publish_notification(summary, body, app_name="GitWatch"):
-    try:
-        import subprocess
-
-        cmd = [
-            "dbus-send",
-            "--session",
-            "--print-reply",
-            "--dest=org.freedesktop.Notifications",
-            "/org/freedesktop/Notifications",
-            "org.freedesktop.Notifications.Notify",
-            f"string:{app_name}",
-            "uint32:0",
-            "string:harbour-gitwatch",
-            f"string:{summary}",
-            f"string:{body}",
-            "array:string:",
-            "array:string:",
-            "dict:string:variant:",
-        ]
-        subprocess.run(cmd, capture_output=True, timeout=5)
-        return True
-    except Exception as e:
-        print(f"Failed to publish notification: {e}")
-        return False
-
-
 def run_background_check():
     if not are_notifications_enabled():
-        return {"status": "disabled", "new_events": []}
+        return {"status": "disabled", "new_events": [], "count": 0}
 
     try:
         new_events = check_for_updates()
-        for event in new_events[:5]:
-            publish_notification(
-                summary=event["summary"],
-                body=f"{event.get('user', '')}: {event['body']}",
-            )
         return {
             "status": "ok",
             "new_events": new_events,
             "count": len(new_events),
         }
     except Exception as e:
-        return {"status": "error", "error": str(e), "new_events": []}
+        return {"status": "error", "error": str(e), "new_events": [], "count": 0}
+
+
+def reset_seen_events():
+    state = load_state()
+    state["seen_events"] = []
+    save_state(state)
+    return True

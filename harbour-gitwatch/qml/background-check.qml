@@ -19,18 +19,35 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import io.thp.pyotherside 1.0
+import Nemo.Notifications 1.0
 
 ApplicationWindow {
     id: bgWindow
     allowedOrientations: Orientation.Portrait
+
+    Notification {
+        id: notification
+        appName: "GitWatch"
+        appIcon: "harbour-gitwatch"
+        category: "gitwatch.event"
+    }
 
     Python {
         id: py
         Component.onCompleted: {
             addImportPath(Qt.resolvedUrl("../python"))
             importModule("gitwatch.github_client", function() {
-                py.call("gitwatch.github_client.run_background_check", [], function(result) {
-                    console.log("Background check result: " + JSON.stringify(result))
+                py.call("gitwatch.github_client.check_for_updates", [], function(newEvents) {
+                    console.log("Background check found " + newEvents.length + " new events")
+                    if (newEvents.length > 0) {
+                        var firstEvent = newEvents[0]
+                        notification.summary = firstEvent.summary
+                        notification.body = (firstEvent.user || "") + ": " + firstEvent.body
+                        if (newEvents.length > 1) {
+                            notification.body += " (+" + (newEvents.length - 1) + " flere)"
+                        }
+                        notification.publish()
+                    }
                     Qt.quit()
                 })
             })
@@ -39,9 +56,5 @@ ApplicationWindow {
             console.log("Python error: " + traceback)
             Qt.quit()
         }
-    }
-
-    Component.onCompleted: {
-        // App will quit automatically after check completes
     }
 }

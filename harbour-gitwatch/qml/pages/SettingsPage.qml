@@ -112,7 +112,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "GitWatch 0.2.5\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
+                text: "GitWatch 0.2.6\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap

@@ -31,9 +31,13 @@ Page {
 
     Notification {
         id: notification
-        appName: "GitWatch"
+        appName: "harbour-gitwatch"
         appIcon: "harbour-gitwatch"
         category: "gitwatch.event"
+        previewSummary: ""
+        previewBody: ""
+        summary: ""
+        body: ""
     }
 
     SilicaListView {
@@ -51,6 +55,10 @@ Page {
             MenuItem {
                 text: "Tjek nu"
                 onClicked: refresh()
+            }
+            MenuItem {
+                text: "Test notifikation"
+                onClicked: showNotification("Test", "Dette er en test-notifikation fra GitWatch")
             }
         }
 
@@ -177,6 +185,22 @@ Page {
 
     property var knownEventIds: []
     property bool firstLoad: true
+    property bool notificationsEnabled: true
+
+    function showNotification(summaryText, bodyText) {
+        appWindow.py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
+            notificationsEnabled = enabled
+            if (!enabled) {
+                console.log("Notifications disabled in settings, skipping")
+                return
+            }
+            notification.previewSummary = summaryText
+            notification.previewBody = bodyText
+            notification.summary = summaryText
+            notification.body = bodyText
+            notification.publish()
+        })
+    }
 
     function refresh() {
         loading = true
@@ -186,17 +210,24 @@ Page {
                 newIds.push(result[i].id)
             }
 
-            if (!firstLoad) {
+            if (!firstLoad && knownEventIds.length > 0) {
                 var newCount = 0
+                var firstNewEvent = null
                 for (var j = 0; j < result.length; j++) {
                     if (knownEventIds.indexOf(result[j].id) === -1) {
                         newCount++
+                        if (!firstNewEvent) {
+                            firstNewEvent = result[j]
+                        }
                     }
                 }
-                if (newCount > 0) {
-                    notification.summary = "GitWatch"
-                    notification.body = newCount + " ny(e) aktivitet(er)"
-                    notification.publish()
+                if (newCount > 0 && firstNewEvent) {
+                    var summaryText = "GitWatch: " + firstNewEvent.summary
+                    var bodyText = firstNewEvent.user + ": " + firstNewEvent.body
+                    if (newCount > 1) {
+                        bodyText += " (+" + (newCount - 1) + " flere)"
+                    }
+                    showNotification(summaryText, bodyText)
                 }
             }
             firstLoad = false
@@ -215,19 +246,11 @@ Page {
         })
     }
 
-    function checkForNew() {
-        appWindow.py.call("gitwatch.github_client.run_background_check", [], function(result) {
-            if (result.status === "ok" && result.count > 0) {
-                notification.summary = "GitWatch"
-                notification.body = result.count + " ny(e) aktivitet(er) fundet"
-                notification.publish()
-            }
-            refresh()
-        })
-    }
-
     Component.onCompleted: {
         refresh()
+        appWindow.py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
+            console.log("Notifications enabled: " + enabled)
+        })
     }
 
     Connections {
