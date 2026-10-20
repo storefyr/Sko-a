@@ -27,23 +27,23 @@ ApplicationWindow {
     cover: Qt.resolvedUrl("cover/CoverPage.qml")
     allowedOrientations: defaultAllowedOrientations
 
+    property alias py: py
+
+    signal watchedUsersChanged()
+
     Python {
         id: py
-        objectName: "py"
 
         Component.onCompleted: {
             addImportPath(Qt.resolvedUrl("../python"))
             importModule("gitwatch.github_client", function() {
                 console.log("gitwatch module loaded")
+                appWindow.watchedUsersChanged()
             })
         }
 
         onError: {
             console.log("Python error: " + traceback)
-        }
-
-        function findChild(objName) {
-            return py
         }
     }
 }

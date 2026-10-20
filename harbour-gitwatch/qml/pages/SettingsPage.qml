@@ -60,6 +60,7 @@ Page {
                         remorseAction("Fjern " + modelData + "?", function() {
                             appWindow.py.call("gitwatch.github_client.remove_watched_user", [modelData], function(users) {
                                 watchedUsers = users
+                                appWindow.watchedUsersChanged()
                             })
                         })
                     }
@@ -72,6 +73,16 @@ Page {
                 label: "GitHub brugernavn"
                 placeholderText: "f.eks. storefyr"
                 EnterKey.onClicked: addUser()
+            }
+
+            Label {
+                id: errorLabel
+                visible: false
+                width: parent.width
+                x: Theme.horizontalPageMargin
+                color: Theme.errorColor
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
             }
 
             Button {
@@ -112,21 +123,39 @@ Page {
     }
 
     function addUser() {
-        var username = newUserField.text.trim()
+        var username = newUserField.text.trim().toLowerCase()
         if (username.length === 0) return
         appWindow.py.call("gitwatch.github_client.add_watched_user", [username], function(users) {
+            console.log("add_watched_user returned: " + JSON.stringify(users))
+            if (users.indexOf(username) === -1) {
+                errorLabel.text = "Brugeren findes allerede"
+                errorLabel.visible = true
+            } else {
+                errorLabel.visible = false
+                watchedUsers = users
+                newUserField.text = ""
+                appWindow.watchedUsersChanged()
+            }
+        })
+    }
+
+    function loadUsers() {
+        appWindow.py.call("gitwatch.github_client.get_watched_users", [], function(users) {
+            console.log("get_watched_users returned: " + JSON.stringify(users))
             watchedUsers = users
-            newUserField.text = ""
         })
     }
 
     Component.onCompleted: {
-        appWindow.py.call("gitwatch.github_client.get_watched_users", [], function(users) {
-            watchedUsers = users
-        })
+        loadUsers()
         appWindow.py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
             notificationsEnabled = enabled
             notifSwitch.checked = enabled
         })
+    }
+
+    Connections {
+        target: appWindow
+        onWatchedUsersChanged: loadUsers()
     }
 }

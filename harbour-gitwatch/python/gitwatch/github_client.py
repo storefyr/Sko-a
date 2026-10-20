@@ -389,9 +389,10 @@ def get_watched_users():
 
 
 def add_watched_user(username):
+    username = username.strip().lower()
     state = load_state()
     users = state.get("watched_users", [])
-    if username not in users:
+    if username and username not in users:
         users.append(username)
         state["watched_users"] = users
         save_state(state)
@@ -399,6 +400,7 @@ def add_watched_user(username):
 
 
 def remove_watched_user(username):
+    username = username.strip().lower()
     state = load_state()
     users = state.get("watched_users", [])
     if username in users and len(users) > 1:
