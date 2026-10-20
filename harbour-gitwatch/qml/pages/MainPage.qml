@@ -64,15 +64,13 @@ Page {
 
         delegate: ListItem {
             id: delegate
-            contentHeight: Theme.itemSizeMedium
+            contentHeight: Theme.itemSizeLarge
 
             Row {
                 anchors {
-                    left: parent.left
-                    right: parent.right
+                    fill: parent
                     leftMargin: Theme.horizontalPageMargin
                     rightMargin: Theme.horizontalPageMargin
-                    verticalCenter: parent.verticalCenter
                 }
                 spacing: Theme.paddingMedium
 
@@ -87,8 +85,9 @@ Page {
                 }
 
                 Column {
+                    anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - eventIcon.width - timeLabel.width - 2 * parent.spacing
-                    spacing: Theme.paddingSmall
+                    spacing: Theme.paddingMedium
 
                     Label {
                         text: model.summary
