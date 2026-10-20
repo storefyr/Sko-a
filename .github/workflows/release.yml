@@ -96,15 +96,16 @@ jobs:
               cp -v RPMS/*.rpm /home/mersdk/project/RPMS/ || true
             "
 
-      - name: Rename RPM with version
+      - name: Fix permissions and rename RPM
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
+          sudo chmod -R a+w harbour-gitwatch/RPMS || true
           mkdir -p harbour-gitwatch/dist
           for rpm in harbour-gitwatch/RPMS/*.rpm; do
             if [ -f "$rpm" ]; then
               newname="harbour-gitwatch/dist/harbour-gitwatch-${VERSION}-${{ matrix.arch }}.rpm"
-              mv "$rpm" "$newname"
-              echo "Renamed: $rpm -> $newname"
+              cp "$rpm" "$newname"
+              echo "Copied: $rpm -> $newname"
             fi
           done
           ls -lh harbour-gitwatch/dist/
