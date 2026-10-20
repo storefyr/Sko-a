@@ -1,0 +1,31 @@
+Name: harbour-gitwatch
+Summary: GitHub Activity Notifier
+Version: 0.1.0
+Release: 1
+Group: Applications/Internet
+License: MIT
+Sources:
+- '%{name}-%{version}.tar.bz2'
+Description: |
+  Få notifikationer når der er ny aktivitet på GitHub-profiler og repositories.
+  Tjekker regelmæssigt for nye commits, pull requests, issues og releases.
+Builder: qmake5
+PkgConfigBR:
+- Qt5Core
+- Qt5Qml
+- Qt5Quick
+- sailfishapp
+PkgBR:
+- gcc
+- make
+Configure: none
+Requires:
+- sailfishsilica-qt5 >= 0.10.9
+- pyotherside-qml-plugin-python3-qt5 >= 1.3.0
+Files:
+- '%{_bindir}/%{name}'
+- '%{_datadir}/%{name}'
+- '%{_datadir}/applications/%{name}.desktop'
+- '%{_datadir}/icons/hicolor/*/apps/%{name}.png'
+- '%{_userunitdir}/%{name}.service'
+- '%{_userunitdir}/%{name}.timer'

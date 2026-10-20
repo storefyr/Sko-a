@@ -1,0 +1,6 @@
+*.pyc
+__pycache__/
+*.tar.bz2
+rpm/*.rpm
+rpm/*.src.rpm
+build/

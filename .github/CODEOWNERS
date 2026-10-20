@@ -1,0 +1,8 @@
+# Code owners for the repository
+* @storefyr
+
+# GitWatch app
+/harbour-gitwatch/ @storefyr
+
+# CI/CD workflows
+/.github/ @storefyr

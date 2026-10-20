@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 0.2.0)'
+        required: true
+        default: '0.1.0'
+
+env:
+  APP_NAME: harbour-gitwatch
+
+jobs:
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      tarball: ${{ steps.create-tarball.outputs.tarball }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get-version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ -n "${{ github.ref_name }}" ]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="0.1.0"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Release version: ${VERSION}"
+
+      - name: Update version in files
+        working-directory: harbour-gitwatch
+        run: |
+          VERSION="${{ steps.get-version.outputs.version }}"
+          sed -i "s/Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
+          sed -i "s/Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.yaml
+          echo "Updated version to ${VERSION}"
+
+      - name: Run tests before release
+        working-directory: harbour-gitwatch
+        run: |
+          pip install pytest pytest-mock
+          python -m pytest tests/ -v --tb=short
+
+      - name: Create source tarball
+        id: create-tarball
+        working-directory: harbour-gitwatch
+        run: |
+          chmod +x build.sh
+          ./build.sh
+          TARBALL=$(ls harbour-gitwatch-*.tar.bz2)
+          echo "tarball=${TARBALL}" >> $GITHUB_OUTPUT
+          echo "Created: ${TARBALL}"
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-tarball
+          path: harbour-gitwatch/harbour-gitwatch-*.tar.bz2
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    permissions:
+      contents: write
+    steps:
+      - name: Download tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: release-tarball
+          path: dist/
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          cat > release-notes.md <<EOF
+          ## harbour-gitwatch v${VERSION}
+
+          GitHub Activity Notifier for Sailfish OS (Jolla Phone 2026)
+
+          ### Features
+          - Monitor GitHub users for activity (pushes, PRs, issues, releases)
+          - Background checks every 30 minutes via systemd timer
+          - System notifications for new activity
+          - Add/remove watched users
+          - Danish language UI
+
+          ### Installation
+          See [INSTALL.md](https://github.com/storefyr/Sko-a/blob/main/harbour-gitwatch/INSTALL.md) for installation instructions.
+
+          ### Requirements
+          - Sailfish OS 5.x (Jolla Phone 2026)
+          - pyotherside-qml-plugin-python3-qt5
+          - python3-base
+
+          ### Files
+          - \`${{ needs.prepare-release.outputs.tarball }}\` - Source tarball for building RPM
+          EOF
+          echo "notes-file=release-notes.md" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.prepare-release.outputs.version }}
+          name: harbour-gitwatch v${{ needs.prepare-release.outputs.version }}
+          body_path: ${{ steps.notes.outputs.notes-file }}
+          files: |
+            dist/${{ needs.prepare-release.outputs.tarball }}
+          draft: false
+          prerelease: false

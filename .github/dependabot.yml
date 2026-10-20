@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/harbour-gitwatch"
+    schedule:
+      frequency: "weekly"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "storefyr"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      frequency: "weekly"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "storefyr"
