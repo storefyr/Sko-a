@@ -64,64 +64,55 @@ Page {
 
         delegate: ListItem {
             id: delegate
-            contentHeight: Theme.itemSizeLarge
+            contentHeight: Theme.itemSizeExtraLarge
 
-            Row {
+            Column {
                 anchors {
                     fill: parent
                     leftMargin: Theme.horizontalPageMargin
                     rightMargin: Theme.horizontalPageMargin
+                    topMargin: Theme.paddingMedium
+                    bottomMargin: Theme.paddingMedium
                 }
-                spacing: Theme.paddingMedium
+                spacing: Theme.paddingSmall
 
-                Image {
-                    id: eventIcon
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: getEventIcon(model.type)
-                    width: Theme.iconSizeMedium
-                    height: Theme.iconSizeMedium
-                    sourceSize.width: Theme.iconSizeMedium
-                    sourceSize.height: Theme.iconSizeMedium
+                Label {
+                    text: model.summary
+                    color: delegate.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    font.pixelSize: Theme.fontSizeMedium
+                    font.bold: true
+                    width: parent.width
+                    truncationMode: TruncationMode.Fade
                 }
 
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - eventIcon.width - timeLabel.width - 2 * parent.spacing
+                Label {
+                    text: model.body
+                    color: Theme.secondaryColor
+                    font.pixelSize: Theme.fontSizeSmall
+                    width: parent.width
+                    truncationMode: TruncationMode.Fade
+                    maximumLineCount: 1
+                }
+
+                Row {
+                    width: parent.width
                     spacing: Theme.paddingMedium
-
-                    Label {
-                        text: model.summary
-                        color: delegate.highlighted ? Theme.highlightColor : Theme.primaryColor
-                        font.pixelSize: Theme.fontSizeMedium
-                        font.bold: true
-                        width: parent.width
-                        truncationMode: TruncationMode.Fade
-                    }
-
-                    Label {
-                        text: model.body
-                        color: Theme.secondaryColor
-                        font.pixelSize: Theme.fontSizeSmall
-                        width: parent.width
-                        truncationMode: TruncationMode.Fade
-                        maximumLineCount: 1
-                    }
 
                     Label {
                         text: model.user + " → " + model.repo
                         color: Theme.secondaryColor
                         font.pixelSize: Theme.fontSizeSmall
-                        width: parent.width
+                        width: parent.width - timeLabel.width - parent.spacing
                         truncationMode: TruncationMode.Fade
                     }
-                }
 
-                Label {
-                    id: timeLabel
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: formatTime(model.created_at)
-                    color: Theme.secondaryColor
-                    font.pixelSize: Theme.fontSizeSmall
+                    Label {
+                        id: timeLabel
+                        text: formatTime(model.created_at)
+                        color: Theme.secondaryColor
+                        font.pixelSize: Theme.fontSizeSmall
+                        horizontalAlignment: Text.AlignRight
+                    }
                 }
             }
 
@@ -145,26 +136,6 @@ Page {
         anchors.centerIn: parent
         running: loading
         size: BusyIndicatorSize.Large
-    }
-
-    function getEventIcon(eventType) {
-        var icons = {
-            "PushEvent": "image://theme/icon-m-up",
-            "PullRequestEvent": "image://theme/icon-m-attention",
-            "IssuesEvent": "image://theme/icon-m-question",
-            "CreateEvent": "image://theme/icon-m-add",
-            "DeleteEvent": "image://theme/icon-m-remove",
-            "ReleaseEvent": "image://theme/icon-m-levels",
-            "WatchEvent": "image://theme/icon-m-favorite",
-            "ForkEvent": "image://theme/icon-m-levels",
-            "CommitCommentEvent": "image://theme/icon-m-chat",
-            "IssueCommentEvent": "image://theme/icon-m-chat",
-            "PullRequestReviewEvent": "image://theme/icon-m-attention",
-            "GollumEvent": "image://theme/icon-m-document",
-            "MemberEvent": "image://theme/icon-m-add",
-            "PublicEvent": "image://theme/icon-m-globe"
-        }
-        return icons[eventType] || "image://theme/icon-m-information"
     }
 
     function formatTime(isoString) {
