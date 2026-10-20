@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_ATOM_BASE = "https://github.com"
 USER_AGENT = "harbour-gitwatch/0.1 (Sailfish OS)"
+
+
 def _get_data_dir():
     xdg_data = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
     return os.path.join(xdg_data, "com.storefyr", "harbour-gitwatch")
