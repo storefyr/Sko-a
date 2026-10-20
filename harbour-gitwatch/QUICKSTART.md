@@ -1,66 +1,63 @@
 # GitWatch v0.1.0 - Hurtig start
 
-## 1. Download udgivelsen
+## Download færdigbygget RPM
+
+Gå til [Releases](https://github.com/storefyr/Sko-a/releases) og download RPM til din enhed:
+
+| Fil | Enhed |
+|-----|-------|
+| `harbour-gitwatch-0.1.0-aarch64.rpm` | **Jolla Phone 2026** (ARM64) |
+| `harbour-gitwatch-0.1.0-armv7hl.rpm` | 32-bit ARM enheder |
+| `harbour-gitwatch-0.1.0-i486.rpm` | Emulator (x86) |
+
+## Installation på Jolla Phone 2026
 
 ```bash
-# Download source tarball fra GitHub Releases
-gh release download v0.1.0 --repo storefyr/Sko-a --pattern "*.tar.bz2"
+# 1. Kopier RPM til telefonen
+scp harbour-gitwatch-0.1.0-aarch64.rpm nemo@<telefon-ip>:/home/nemo/
 
-# Eller direkte fra browser:
-# https://github.com/storefyr/Sko-a/releases/tag/v0.1.0
-```
-
-## 2. Udpak og byg RPM
-
-```bash
-# Udpak
-tar -xjf harbour-gitwatch-0.1.0.tar.bz2
-cd harbour-gitwatch-0.1.0
-
-# Installer Sailfish SDK først (hvis ikke gjort):
-# https://docs.sailfishos.org/Develop/Sailfish_SDK/Installation/
-
-# Byg RPM til Jolla Phone 2026 (aarch64)
-sb2 -t SailfishOS-latest-aarch64 -R rpmbuild -ta harbour-gitwatch-0.1.0.tar.bz2
-```
-
-## 3. Find den byggede RPM
-
-```bash
-# RPM ligger typisk her:
-~/SailfishOS/rpmbuild/RPMS/noarch/harbour-gitwatch-0.1.0-1.noarch.rpm
-```
-
-## 4. Installer på telefonen
-
-```bash
-# Kopier til telefonen
-scp ~/SailfishOS/rpmbuild/RPMS/noarch/harbour-gitwatch-0.1.0-1.noarch.rpm nemo@<telefon-ip>:/home/nemo/
-
-# Eller brug USB kabel og kopier manuelt
-
-# SSH ind og installer
+# 2. SSH ind på telefonen
 ssh nemo@<telefon-ip>
-pkcon install-local harbour-gitwatch-0.1.0-1.noarch.rpm
-```
 
-## 5. Aktiver baggrundstjek
+# 3. Installer
+pkcon install-local harbour-gitwatch-0.1.0-aarch64.rpm
 
-```bash
-# På telefonen
-systemctl --user enable harbour-gitwatch.timer
-systemctl --user start harbour-gitwatch.timer
-
-# Verificer
+# 4. Verificer at baggrundstjek er aktivt
 systemctl --user status harbour-gitwatch.timer
 ```
 
-## 6. Åbn app'en
+## Manuel aktivering af baggrundstjek
+
+```bash
+systemctl --user enable harbour-gitwatch.timer
+systemctl --user start harbour-gitwatch.timer
+```
+
+## Åbn app'en
 
 1. Find **GitWatch** i app-listen
 2. App'en starter med at overvåge `storefyr`
 3. Træk ned for at opdatere manuelt
 4. Gå til **Indstillinger** for at tilføje flere brugere
+
+## Byg selv fra kildekode
+
+Hvis du vil bygge selv:
+
+```bash
+# Download source tarball fra Releases, eller klon repo
+git clone https://github.com/storefyr/Sko-a.git
+cd Sko-a/harbour-gitwatch
+
+# Installer Sailfish SDK
+# https://docs.sailfishos.org/Develop/Sailfish_SDK/Installation/
+
+# Byg RPM
+mb2 -t SailfishOS-latest-aarch64 build
+
+# Find RPM i RPMS/ mappen
+ls -lh RPMS/
+```
 
 ## Fejlfinding
 
@@ -75,8 +72,17 @@ systemctl --user start harbour-gitwatch.service
 systemctl --user list-timers | grep gitwatch
 ```
 
+## CI/CD
+
+Projektet bygges automatisk med GitHub Actions:
+- **CI**: Tester, lint, validering og RPM build ved hver push/PR
+- **Release**: Bygger RPM'er til alle arkitekturer ved git tags (`v*`)
+
+Se `.github/workflows/` for detaljer.
+
 ## Links
 
-- **Release:** https://github.com/storefyr/Sko-a/releases/tag/v0.1.0
+- **Releases:** https://github.com/storefyr/Sko-a/releases
 - **Dokumentation:** https://github.com/storefyr/Sko-a/tree/main/harbour-gitwatch
 - **Issues:** https://github.com/storefyr/Sko-a/issues
+- **CI Status:** https://github.com/storefyr/Sko-a/actions

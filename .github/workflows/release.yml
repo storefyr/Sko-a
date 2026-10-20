@@ -13,6 +13,7 @@ on:
 
 env:
   APP_NAME: harbour-gitwatch
+  SFOS_RELEASE: '5.0.0.76'
 
 jobs:
   prepare-release:
@@ -43,8 +44,9 @@ jobs:
         working-directory: harbour-gitwatch
         run: |
           VERSION="${{ steps.get-version.outputs.version }}"
-          sed -i "s/Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
-          sed -i "s/Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.yaml
+          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
+          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.yaml
+          sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
           echo "Updated version to ${VERSION}"
 
       - name: Run tests before release
@@ -63,24 +65,79 @@ jobs:
           echo "tarball=${TARBALL}" >> $GITHUB_OUTPUT
           echo "Created: ${TARBALL}"
 
-      - name: Upload tarball
+  build-rpms:
+    name: Build RPMs
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    strategy:
+      matrix:
+        arch: [aarch64, armv7hl, i486]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update version
+        working-directory: harbour-gitwatch
+        run: |
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
+          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.yaml
+
+      - name: Build RPM for ${{ matrix.arch }}
+        uses: coderus/github-sfos-build@sfos5
+        with:
+          release: ${{ env.SFOS_RELEASE }}
+          arch: ${{ matrix.arch }}
+
+      - name: Rename RPM with version
+        run: |
+          mkdir -p dist
+          for rpm in RPMS/*.rpm; do
+            if [ -f "$rpm" ]; then
+              VERSION="${{ needs.prepare-release.outputs.version }}"
+              newname="dist/harbour-gitwatch-${VERSION}-${{ matrix.arch }}.rpm"
+              mv "$rpm" "$newname"
+              echo "Renamed: $rpm -> $newname"
+            fi
+          done
+          ls -lh dist/
+
+      - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
-          name: release-tarball
-          path: harbour-gitwatch/harbour-gitwatch-*.tar.bz2
+          name: rpm-${{ matrix.arch }}
+          path: dist/*.rpm
+          retention-days: 90
 
   create-github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: [prepare-release, build-rpms]
     permissions:
       contents: write
     steps:
-      - name: Download tarball
+      - name: Download source tarball
         uses: actions/download-artifact@v4
         with:
           name: release-tarball
           path: dist/
+        if: false
+
+      - name: Download all RPMs
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          pattern: rpm-*
+          merge-multiple: true
+
+      - name: Create source tarball
+        working-directory: harbour-gitwatch
+        run: |
+          chmod +x build.sh
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
+          ./build.sh
+          cp harbour-gitwatch-*.tar.bz2 ../../dist/
 
       - name: Generate release notes
         id: notes
@@ -99,7 +156,12 @@ jobs:
           - Danish language UI
 
           ### Installation
-          See [INSTALL.md](https://github.com/storefyr/Sko-a/blob/main/harbour-gitwatch/INSTALL.md) for installation instructions.
+          Download the RPM for your device architecture and install:
+          \`\`\`bash
+          pkcon install-local harbour-gitwatch-${VERSION}-aarch64.rpm
+          \`\`\`
+
+          Or see [INSTALL.md](https://github.com/storefyr/Sko-a/blob/main/harbour-gitwatch/INSTALL.md) for detailed instructions.
 
           ### Requirements
           - Sailfish OS 5.x (Jolla Phone 2026)
@@ -107,9 +169,20 @@ jobs:
           - python3-base
 
           ### Files
-          - \`${{ needs.prepare-release.outputs.tarball }}\` - Source tarball for building RPM
+          - \`harbour-gitwatch-${VERSION}-aarch64.rpm\` - For Jolla Phone 2026 (ARM64)
+          - \`harbour-gitwatch-${VERSION}-armv7hl.rpm\` - For 32-bit ARM devices
+          - \`harbour-gitwatch-${VERSION}-i486.rpm\` - For emulator (x86)
+          - \`harbour-gitwatch-${VERSION}.tar.bz2\` - Source tarball
+
+          ### License
+          GPL-3.0 - see [LICENSE](https://github.com/storefyr/Sko-a/blob/main/LICENSE)
           EOF
           echo "notes-file=release-notes.md" >> $GITHUB_OUTPUT
+
+      - name: List release assets
+        run: |
+          echo "Release assets:"
+          ls -lh dist/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -118,6 +191,7 @@ jobs:
           name: harbour-gitwatch v${{ needs.prepare-release.outputs.version }}
           body_path: ${{ steps.notes.outputs.notes-file }}
           files: |
-            dist/${{ needs.prepare-release.outputs.tarball }}
+            dist/harbour-gitwatch-*.rpm
+            dist/harbour-gitwatch-*.tar.bz2
           draft: false
           prerelease: false
