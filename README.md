@@ -7,7 +7,7 @@ Samling af projekter til Jolla Phone 2026 (Sailfish OS).
 ### harbour-gitwatch
 
 [![CI](https://github.com/storefyr/Sko-a/actions/workflows/ci.yml/badge.svg)](https://github.com/storefyr/Sko-a/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 GitHub Activity Notifier for Sailfish OS. Få notifikationer når der er ny aktivitet på GitHub-profiler.
 
@@ -35,4 +35,4 @@ Projektet bruger GitHub Actions til CI/CD:
 
 ## Licens
 
-MIT - se [LICENSE](LICENSE)
+GPL-3.0 - se [LICENSE](LICENSE)

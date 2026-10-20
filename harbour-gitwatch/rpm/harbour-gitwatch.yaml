@@ -3,7 +3,7 @@ Summary: GitHub Activity Notifier
 Version: 0.1.0
 Release: 1
 Group: Applications/Internet
-License: MIT
+License: GPL-3.0
 Sources:
 - '%{name}-%{version}.tar.bz2'
 Description: |

@@ -58,4 +58,4 @@ Rate limit: 60 requests/time for uautentificerede kald.
 
 ## Licens
 
-MIT
+GPL-3.0
