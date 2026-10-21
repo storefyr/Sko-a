@@ -153,14 +153,16 @@ jobs:
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
           cat > release-notes.md <<EOF
-          ## harbour-gitwatch v${VERSION}
+          ## Skoða v${VERSION}
 
           GitHub Activity Notifier for Sailfish OS (Jolla Phone 2026)
 
           ### Features
           - Monitor GitHub users for activity (pushes, PRs, issues, releases)
-          - Background checks every 30 minutes via systemd timer
-          - System notifications for new activity
+          - Persistent background daemon checks every minute
+          - System notifications with Sailfish OS native sound integration
+          - Sound only for new releases (configurable)
+          - Notification filter for event types
           - Add/remove watched users
           - Danish language UI
 
@@ -200,7 +202,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.prepare-release.outputs.version }}
-          name: harbour-gitwatch v${{ needs.prepare-release.outputs.version }}
+          name: Skoða v${{ needs.prepare-release.outputs.version }}
           body_path: ${{ steps.notes.outputs.notes-file }}
           files: |
             dist/harbour-gitwatch-*.rpm
