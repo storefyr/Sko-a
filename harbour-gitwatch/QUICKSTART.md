@@ -1,4 +1,4 @@
-# Skoða v0.5.0 - Hurtig start
+# Skoða v0.5.1 - Hurtig start
 
 ## Download færdigbygget RPM
 
@@ -6,21 +6,21 @@ Gå til [Releases](https://github.com/storefyr/Sko-a/releases) og download RPM t
 
 | Fil | Enhed |
 |-----|-------|
-| `harbour-gitwatch-0.5.0-aarch64.rpm` | **Jolla Phone 2026** (ARM64) |
-| `harbour-gitwatch-0.5.0-armv7hl.rpm` | 32-bit ARM enheder |
-| `harbour-gitwatch-0.5.0-i486.rpm` | Emulator (x86) |
+| `harbour-gitwatch-0.5.1-aarch64.rpm` | **Jolla Phone 2026** (ARM64) |
+| `harbour-gitwatch-0.5.1-armv7hl.rpm` | 32-bit ARM enheder |
+| `harbour-gitwatch-0.5.1-i486.rpm` | Emulator (x86) |
 
 ## Installation på Jolla Phone 2026
 
 ```bash
 # 1. Kopier RPM til telefonen
-scp harbour-gitwatch-0.5.0-aarch64.rpm nemo@<telefon-ip>:/home/nemo/
+scp harbour-gitwatch-0.5.1-aarch64.rpm nemo@<telefon-ip>:/home/nemo/
 
 # 2. SSH ind på telefonen
 ssh nemo@<telefon-ip>
 
 # 3. Installer
-pkcon install-local harbour-gitwatch-0.5.0-aarch64.rpm
+pkcon install-local harbour-gitwatch-0.5.1-aarch64.rpm
 
 # 4. Verificer at baggrundsdaemon kører
 systemctl --user status harbour-gitwatch.service

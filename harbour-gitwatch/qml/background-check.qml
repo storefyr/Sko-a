@@ -59,9 +59,9 @@ ApplicationWindow {
 
                         if (otherEvents.length > 0) {
                             var firstOther = otherEvents[0]
-                            notification.previewSummary = "Sko\u00f0a: " + firstOther.summary
+                            notification.previewSummary = "Skoða: " + firstOther.summary
                             notification.previewBody = (firstOther.user || "") + ": " + firstOther.body
-                            notification.summary = "Sko\u00f0a: " + firstOther.summary
+                            notification.summary = "Skoða: " + firstOther.summary
                             notification.body = (firstOther.user || "") + ": " + firstOther.body
                             if (otherEvents.length > 1) {
                                 notification.body += " (+" + (otherEvents.length - 1) + " flere)"
@@ -72,7 +72,7 @@ ApplicationWindow {
                         if (releaseEvents.length > 0) {
                             py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(soundEnabled) {
                                 var firstRelease = releaseEvents[0]
-                                var summary = "Sko\u00f0a: " + firstRelease.summary
+                                var summary = "Skoða: " + firstRelease.summary
                                 var body = (firstRelease.user || "") + ": " + firstRelease.body
                                 if (releaseEvents.length > 1) {
                                     body += " (+" + (releaseEvents.length - 1) + " flere)"

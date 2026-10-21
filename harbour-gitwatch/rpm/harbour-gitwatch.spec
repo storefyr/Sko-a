@@ -18,8 +18,8 @@
 %define __requires_exclude ^python3.*$
 
 Name:           harbour-gitwatch
-Summary:        Sko\u00f0a - GitHub Activity Notifier
-Version:        0.5.0
+Summary:        Skoða - GitHub Activity Notifier
+Version:        0.5.1
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -37,9 +37,9 @@ BuildRequires:  pkgconfig(Qt5Quick)
 BuildRequires:  desktop-file-utils
 
 %description
-Få notifikationer når der er ny aktivitet på GitHub-profiler og repositories.
-Baggrundstjek hvert minut via systemd timer. Integreret med Sailfish OS lydindstillinger.
-Kører baggrundstjek hver 30. minut via systemd timer.
+Skoða giver notifikationer når der er ny aktivitet på GitHub-profiler og repositories.
+Kører som baggrundsdaemon og tjekker hvert minut.
+Integreret med Sailfish OS lydindstillinger.
 
 %prep
 %setup -q -n %{name}-%{version}
@@ -77,7 +77,7 @@ install -m 644 config/x-harbour.harbour-gitwatch.release.conf %{buildroot}%{_dat
 install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
-Description=Sko\u00f0a Background Daemon
+Description=Skoða Background Daemon
 After=lipstick.service graphical-session.target
 
 [Service]

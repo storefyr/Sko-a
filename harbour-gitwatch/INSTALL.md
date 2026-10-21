@@ -14,7 +14,7 @@ chmod +x build.sh
 ./build.sh
 ```
 
-Dette skaber `harbour-gitwatch-0.5.0.tar.bz2`.
+Dette skaber `harbour-gitwatch-0.5.1.tar.bz2`.
 
 ## Trin 2: Build RPM pakken
 
@@ -23,7 +23,7 @@ Dette skaber `harbour-gitwatch-0.5.0.tar.bz2`.
 # Download fra: https://docs.sailfishos.org/Develop/Sailfish_SDK/
 
 # Build for Jolla Phone 2026 (aarch64)
-sb2 -t SailfishOS-latest-aarch64 -R rpmbuild -ta harbour-gitwatch-0.5.0.tar.bz2
+sb2 -t SailfishOS-latest-aarch64 -R rpmbuild -ta harbour-gitwatch-0.5.1.tar.bz2
 ```
 
 ## Trin 3: Installer på telefonen
@@ -32,20 +32,20 @@ sb2 -t SailfishOS-latest-aarch64 -R rpmbuild -ta harbour-gitwatch-0.5.0.tar.bz2
 
 ```bash
 # Kopier RPM til telefonen
-scp harbour-gitwatch-0.5.0-1.noarch.rpm nemo@<telefon-ip>:/home/nemo/
+scp harbour-gitwatch-0.5.1-1.noarch.rpm nemo@<telefon-ip>:/home/nemo/
 
 # SSH ind på telefonen
 ssh nemo@<telefon-ip>
 
 # Installer
-pkcon install-local harbour-gitwatch-0.5.0-1.noarch.rpm
+pkcon install-local harbour-gitwatch-0.5.1-1.noarch.rpm
 ```
 
 ### Eller direkte på telefonen:
 
 1. Kopier `.rpm` filen til telefonens Downloads mappe
 2. Åbn Terminal appen på telefonen
-3. Kør: `pkcon install-local ~/Downloads/harbour-gitwatch-0.5.0-1.noarch.rpm`
+3. Kør: `pkcon install-local ~/Downloads/harbour-gitwatch-0.5.1-1.noarch.rpm`
 
 ## Trin 4: Aktiver baggrundsdaemon
 

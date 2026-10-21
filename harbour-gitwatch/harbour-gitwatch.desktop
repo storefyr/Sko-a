@@ -3,8 +3,8 @@ Type=Application
 X-Nemo-Application-Type=silica-qt5
 Icon=harbour-gitwatch
 Exec=harbour-gitwatch
-Name=Sko\u00f0a
-Name[da]=Sko\u00f0a
+Name=Skoða
+Name[da]=Skoða
 
 [X-Sailjail]
 Permissions=Internet;Notifications

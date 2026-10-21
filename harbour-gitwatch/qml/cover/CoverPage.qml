@@ -38,7 +38,7 @@ CoverBackground {
         }
 
         Label {
-            text: "Sko\u00f0a"
+            text: "Skoða"
             color: Theme.primaryColor
             font.pixelSize: Theme.fontSizeMedium
             font.bold: true

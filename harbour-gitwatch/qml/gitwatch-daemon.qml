@@ -55,13 +55,13 @@ QtObject {
         Component.onCompleted: {
             addImportPath(Qt.resolvedUrl("../python"))
             importModule("gitwatch.github_client", function() {
-                console.log("Sko\u00f0a daemon: Python module loaded")
+                console.log("Skoða daemon: Python module loaded")
                 daemon.pythonReady = true
                 checkTimer.start()
             })
         }
         onError: {
-            console.log("Sko\u00f0a daemon Python error: " + traceback)
+            console.log("Skoða daemon Python error: " + traceback)
         }
     }
 
@@ -97,7 +97,7 @@ QtObject {
 
                     if (otherEvents.length > 0) {
                         var firstOther = otherEvents[0]
-                        var otherSummary = "Sko\u00f0a: " + firstOther.summary
+                        var otherSummary = "Skoða: " + firstOther.summary
                         var otherBody = (firstOther.user || "") + ": " + firstOther.body
                         if (otherEvents.length > 1) {
                             otherBody += " (+" + (otherEvents.length - 1) + " flere)"
@@ -108,7 +108,7 @@ QtObject {
                     if (releaseEvents.length > 0) {
                         py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(soundEnabled) {
                             var firstRelease = releaseEvents[0]
-                            var releaseSummary = "Sko\u00f0a: " + firstRelease.summary
+                            var releaseSummary = "Skoða: " + firstRelease.summary
                             var releaseBody = (firstRelease.user || "") + ": " + firstRelease.body
                             if (releaseEvents.length > 1) {
                                 releaseBody += " (+" + (releaseEvents.length - 1) + " flere)"
