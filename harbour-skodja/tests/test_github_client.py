@@ -616,164 +616,78 @@ class TestConciseReleaseNotifications(unittest.TestCase):
         self.assertNotIn('"body": f"{tag_name} i {repo}', src)
 
 
-class TestServiceControl(unittest.TestCase):
-    """Tests for daemon status and autostart control (v0.7.2)."""
+class TestStatistics(unittest.TestCase):
+    """Tests for statistics tracking (v0.8.0)."""
 
-    def test_service_functions_exist(self):
-        from gitwatch.github_client import (
-            get_service_status,
-            enable_service,
-            disable_service,
-            get_last_check_display,
-        )
-
-        self.assertTrue(callable(get_service_status))
-        self.assertTrue(callable(enable_service))
-        self.assertTrue(callable(disable_service))
-        self.assertTrue(callable(get_last_check_display))
-
-    def test_service_name_constant(self):
-        from gitwatch.github_client import SERVICE_NAME
-
-        self.assertEqual(SERVICE_NAME, "harbour-skodja.service")
-
-    def test_get_last_check_display_never(self):
-        from gitwatch.github_client import get_last_check_display
-        import gitwatch.github_client as gc
-
-        state = gc.load_state()
-        state["last_check"] = None
-        gc.save_state(state)
-        result = get_last_check_display()
-        self.assertEqual(result, "Aldrig")
-
-    def test_settings_page_has_service_section(self):
-        path = os.path.join(os.path.dirname(__file__), "..", "qml", "pages", "SettingsPage.qml")
-        with open(path) as f:
-            content = f.read()
-        self.assertIn("Baggrundsdaemon", content)
-        self.assertIn("get_service_status", content)
-        self.assertIn("enable_service", content)
-        self.assertIn("disable_service", content)
-        self.assertIn("refreshServiceStatus", content)
-        # Start/Stop buttons should NOT be present
-        self.assertNotIn("start_service", content)
-        self.assertNotIn("stop_service", content)
-        self.assertNotIn("restart_service", content)
-
-    def test_spec_uses_simple_service(self):
-        spec_path = os.path.join(os.path.dirname(__file__), "..", "rpm", "harbour-skodja.spec")
-        with open(spec_path) as f:
-            content = f.read()
-        self.assertIn("Type=simple", content)
-        self.assertIn("Restart=on-failure", content)
-
-
-class TestPidFileStatus(unittest.TestCase):
-    """Tests for PID-file based daemon status detection (v0.7.3)."""
-
-    def test_pid_file_constant_exists(self):
-        from gitwatch.github_client import PID_FILE
-
-        self.assertTrue(PID_FILE.endswith("daemon.pid"))
-
-    def test_pid_is_alive_invalid(self):
-        from gitwatch.github_client import _pid_is_alive
-
-        self.assertFalse(_pid_is_alive(None))
-        self.assertFalse(_pid_is_alive(0))
-        self.assertFalse(_pid_is_alive(-1))
-        # PID 99999999 is very unlikely to exist
-        self.assertFalse(_pid_is_alive(99999999))
-
-    def test_pid_is_alive_self(self):
-        import os
-        from gitwatch.github_client import _pid_is_alive
-
-        self.assertTrue(_pid_is_alive(os.getpid()))
-
-    def test_write_and_read_pid_file(self):
-        import os
-        import gitwatch.github_client as gc
-
-        gc.ensure_data_dir()
-        gc._write_daemon_pid()
-        try:
-            self.assertTrue(os.path.exists(gc.PID_FILE))
-            pid = gc._get_daemon_pid()
-            self.assertEqual(pid, os.getpid())
-        finally:
-            gc._cleanup_daemon_pid()
-        self.assertFalse(os.path.exists(gc.PID_FILE))
-
-    def test_get_daemon_pid_no_file(self):
-        import gitwatch.github_client as gc
-
-        # Ensure no PID file exists
-        if os.path.exists(gc.PID_FILE):
-            os.remove(gc.PID_FILE)
-        self.assertIsNone(gc._get_daemon_pid())
-
-    def test_get_daemon_pid_stale_file(self):
-        import gitwatch.github_client as gc
-
-        gc.ensure_data_dir()
-        # Write a stale PID (99999999 is very unlikely to exist)
-        with open(gc.PID_FILE, "w") as f:
-            f.write("99999999")
-        try:
-            self.assertIsNone(gc._get_daemon_pid())
-            # Stale file should be cleaned up
-            self.assertFalse(os.path.exists(gc.PID_FILE))
-        finally:
-            if os.path.exists(gc.PID_FILE):
-                os.remove(gc.PID_FILE)
-
-
-class TestEtagCaching(unittest.TestCase):
-    """Tests for ETag-based API caching (v0.7.4)."""
-
-    def test_api_cache_in_default_state(self):
+    def test_stats_in_default_state(self):
         import gitwatch.github_client as gc
 
         gc.reset_seen_events()
         state = gc.load_state()
-        self.assertIn("api_cache", state)
-        self.assertIsInstance(state["api_cache"], dict)
+        self.assertIn("stats", state)
 
-    def test_save_and_get_cached_etag(self):
+    def test_get_statistics_returns_dict(self):
+        from gitwatch.github_client import get_statistics
+
+        stats = get_statistics()
+        self.assertIsInstance(stats, dict)
+        self.assertIn("api_calls_total", stats)
+        self.assertIn("cache_hit_rate", stats)
+        self.assertIn("uptime", stats)
+        self.assertIn("last_check", stats)
+        self.assertIn("notifications_sent", stats)
+        self.assertIn("atom_fallbacks", stats)
+        self.assertIn("api_rate_limited", stats)
+
+    def test_reset_statistics(self):
+        from gitwatch.github_client import reset_statistics, get_statistics
+
+        reset_statistics()
+        stats = get_statistics()
+        self.assertEqual(stats["api_calls_total"], 0)
+        self.assertEqual(stats["notifications_sent"], 0)
+        self.assertEqual(stats["checks_total"], 0)
+
+    def test_increment_stat(self):
         import gitwatch.github_client as gc
 
-        state = {"api_cache": {}}
-        gc._save_cached_etag(state, "https://api.github.com/test", '"abc123"', [{"id": 1}])
-        etag, data = gc._get_cached_etag(state, "https://api.github.com/test")
-        self.assertEqual(etag, '"abc123"')
-        self.assertEqual(data, [{"id": 1}])
+        state = {"stats": {}}
+        gc._increment_stat(state, "api_calls_total", 5)
+        self.assertEqual(state["stats"]["api_calls_total"], 5)
+        gc._increment_stat(state, "api_calls_total")
+        self.assertEqual(state["stats"]["api_calls_total"], 6)
 
-    def test_get_cached_etag_missing(self):
+    def test_record_error(self):
         import gitwatch.github_client as gc
 
-        state = {"api_cache": {}}
-        etag, data = gc._get_cached_etag(state, "https://api.github.com/missing")
-        self.assertIsNone(etag)
-        self.assertIsNone(data)
+        state = {"stats": {}}
+        gc._record_error(state, "Test error message")
+        self.assertEqual(state["stats"]["api_errors"], 1)
+        self.assertEqual(state["stats"]["last_error"], "Test error message")
+        self.assertIsNotNone(state["stats"]["last_error_time"])
 
-    def test_cache_size_limit(self):
-        import gitwatch.github_client as gc
+    def test_settings_page_has_statistics_section(self):
+        path = os.path.join(os.path.dirname(__file__), "..", "qml", "pages", "SettingsPage.qml")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("Statistik", content)
+        self.assertIn("get_statistics", content)
+        self.assertIn("reset_statistics", content)
+        self.assertIn("refreshStatistics", content)
+        self.assertIn("API-forbrug", content)
+        # Old service control should be gone
+        self.assertNotIn("Baggrundsdaemon", content)
+        self.assertNotIn("get_service_status", content)
+        self.assertNotIn("enable_service", content)
+        self.assertNotIn("disable_service", content)
 
-        state = {"api_cache": {}}
-        for i in range(105):
-            gc._save_cached_etag(state, f"https://api.github.com/url{i}", f'"etag{i}"', [])
-        self.assertLessEqual(len(state["api_cache"]), 100)
+    def test_pid_file_functions_exist(self):
+        """PID file functions should still exist for daemon."""
+        from gitwatch.github_client import _write_daemon_pid, _cleanup_daemon_pid, PID_FILE
 
-    def test_api_get_returns_tuple(self):
-        """api_get should return (data, from_cache) tuple."""
-        import gitwatch.github_client as gc
-        import inspect
-
-        src = inspect.getsource(gc.api_get)
-        self.assertIn("return data, False", src)
-        self.assertIn("return cached_data, True", src)
+        self.assertTrue(callable(_write_daemon_pid))
+        self.assertTrue(callable(_cleanup_daemon_pid))
+        self.assertTrue(PID_FILE.endswith("daemon.pid"))
 
 
 class TestRateLimitHandling(unittest.TestCase):

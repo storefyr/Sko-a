@@ -113,6 +113,8 @@ def load_state():
                 state["notified_events"] = []
             if "api_cache" not in state:
                 state["api_cache"] = {}
+            if "stats" not in state:
+                state["stats"] = {}
             if _migrate_old_release_ids(state):
                 save_state(state)
             return state
@@ -124,6 +126,7 @@ def load_state():
         "notified_events": [],
         "watched_users": ["storefyr"],
         "api_cache": {},
+        "stats": {},
         "notifications_enabled": True,
         "notification_sound": True,
         "notification_filter": [
@@ -171,6 +174,11 @@ def _save_cached_etag(state, url, etag, data):
             del state["api_cache"][k]
 
 
+def _update_api_stats(state, key):
+    """Update API call statistics."""
+    _increment_stat(state, key)
+
+
 def api_get(url):
     """Make a GitHub API GET request with ETag caching.
     Returns (data, from_cache) where from_cache is True if 304 Not Modified.
@@ -181,6 +189,7 @@ def api_get(url):
     try:
         state = load_state()
         cached_etag, cached_data = _get_cached_etag(state, url)
+        _increment_stat(state, "api_calls_total")
     finally:
         if lock_fd is not None:
             release_lock(lock_fd)
@@ -197,20 +206,29 @@ def api_get(url):
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             etag = resp.headers.get("ETag", "")
-            # Save to cache
-            if etag:
-                lock_fd = acquire_lock(timeout=5)
-                try:
-                    state = load_state()
+            # Save to cache + update stats
+            lock_fd = acquire_lock(timeout=5)
+            try:
+                state = load_state()
+                if etag:
                     _save_cached_etag(state, url, etag, data)
-                    save_state(state)
-                finally:
-                    if lock_fd is not None:
-                        release_lock(lock_fd)
+                save_state(state)
+            finally:
+                if lock_fd is not None:
+                    release_lock(lock_fd)
             return data, False
     except urllib.error.HTTPError as e:
         if e.code == 304 and cached_data is not None:
             # Not modified - use cached data
+            lock_fd = acquire_lock(timeout=5)
+            try:
+                state = load_state()
+                _increment_stat(state, "api_calls_cached")
+                _increment_stat(state, "api_calls_304")
+                save_state(state)
+            finally:
+                if lock_fd is not None:
+                    release_lock(lock_fd)
             return cached_data, True
         body = ""
         try:
@@ -218,10 +236,28 @@ def api_get(url):
         except Exception:
             pass
         if e.code == 403 and "rate limit" in body:
-            # If rate limited but we have cached data, use it
+            lock_fd = acquire_lock(timeout=5)
+            try:
+                state = load_state()
+                _increment_stat(state, "api_rate_limited")
+                if cached_data is not None:
+                    _increment_stat(state, "api_calls_cached")
+                    save_state(state)
+            finally:
+                if lock_fd is not None:
+                    release_lock(lock_fd)
             if cached_data is not None:
                 return cached_data, True
             raise RateLimitError("GitHub API rate limit exceeded")
+        # Other HTTP error
+        lock_fd = acquire_lock(timeout=5)
+        try:
+            state = load_state()
+            _record_error(state, f"HTTP {e.code}: {url}")
+            save_state(state)
+        finally:
+            if lock_fd is not None:
+                release_lock(lock_fd)
         raise
 
 
@@ -547,6 +583,14 @@ def fetch_user_tags(username, per_page=20):
                 continue
             except RateLimitError:
                 print(f"API rate limited for {username}/{repo}, falling back to tags.atom")
+                lock_fd = acquire_lock(timeout=5)
+                try:
+                    state = load_state()
+                    _increment_stat(state, "atom_fallbacks")
+                    save_state(state)
+                finally:
+                    if lock_fd is not None:
+                        release_lock(lock_fd)
                 api_failed = True
             except Exception as e:
                 print(f"Error fetching releases API for {username}/{repo}: {e}")
@@ -577,6 +621,14 @@ def fetch_user_events(username, per_page=30):
             formatted.append(f)
     except RateLimitError:
         print(f"API rate limited, falling back to Atom feed for {username}")
+        lock_fd = acquire_lock(timeout=5)
+        try:
+            state = load_state()
+            _increment_stat(state, "atom_fallbacks")
+            save_state(state)
+        finally:
+            if lock_fd is not None:
+                release_lock(lock_fd)
         events = fetch_user_events_atom(username, per_page)
         formatted = events
 
@@ -912,9 +964,27 @@ def check_and_notify():
         return {"status": "disabled", "notified": 0}
 
     try:
+        lock_fd = acquire_lock(timeout=5)
+        try:
+            state = load_state()
+            _increment_stat(state, "checks_total")
+            save_state(state)
+        finally:
+            if lock_fd is not None:
+                release_lock(lock_fd)
+
         new_events = check_for_updates()
         if not new_events:
             return {"status": "ok", "notified": 0}
+
+        lock_fd = acquire_lock(timeout=5)
+        try:
+            state = load_state()
+            _increment_stat(state, "checks_with_new_events")
+            save_state(state)
+        finally:
+            if lock_fd is not None:
+                release_lock(lock_fd)
 
         filtered = filter_events_for_notification(new_events)
         if not filtered:
@@ -933,6 +1003,14 @@ def check_and_notify():
                 body += " (+" + str(len(other_events) - 1) + " flere)"
             if publish_notification(summary, body, is_release=False):
                 notified += 1
+                lock_fd = acquire_lock(timeout=5)
+                try:
+                    state = load_state()
+                    _increment_stat(state, "notifications_sent")
+                    save_state(state)
+                finally:
+                    if lock_fd is not None:
+                        release_lock(lock_fd)
 
         if release_events:
             sound_enabled = is_notification_sound_enabled()
@@ -943,6 +1021,14 @@ def check_and_notify():
                 body += " (+" + str(len(release_events) - 1) + " flere)"
             if publish_notification(summary, body, is_release=sound_enabled):
                 notified += 1
+                lock_fd = acquire_lock(timeout=5)
+                try:
+                    state = load_state()
+                    _increment_stat(state, "notifications_sent")
+                    save_state(state)
+                finally:
+                    if lock_fd is not None:
+                        release_lock(lock_fd)
 
         return {"status": "ok", "notified": notified}
 
@@ -950,75 +1036,7 @@ def check_and_notify():
         return {"status": "error", "error": str(e), "notified": 0}
 
 
-SERVICE_NAME = "harbour-skodja.service"
 PID_FILE = os.path.join(DATA_DIR, "daemon.pid")
-SYSTEMD_USER_SERVICE = "org.freedesktop.systemd1"
-SYSTEMD_USER_PATH = "/org/freedesktop/systemd1"
-SYSTEMD_UNIT_PATH = "/org/freedesktop/systemd1/unit/harbour_2dskodja_2eservice"
-
-
-def _dbus_systemd_call(method, interface, *args):
-    """Make a D-Bus call to systemd user instance.
-    Uses dbus-send which is always available.
-    Returns (success, result_string).
-    """
-    cmd = [
-        "dbus-send",
-        "--session",
-        "--print-reply",
-        "--dest=" + SYSTEMD_USER_SERVICE,
-        SYSTEMD_UNIT_PATH if interface == "org.freedesktop.systemd1.Unit" else SYSTEMD_USER_PATH,
-        interface + "." + method,
-    ]
-    cmd.extend(str(a) for a in args)
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        return result.returncode == 0, result.stdout.strip()
-    except Exception as e:
-        return False, str(e)
-
-
-def _systemctl_user(*args):
-    """Run systemctl --user with given arguments, return (success, output)."""
-    cmd = ["systemctl", "--user"] + list(args)
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        return result.returncode == 0, result.stdout.strip() + result.stderr.strip()
-    except Exception as e:
-        return False, str(e)
-
-
-def _pid_is_alive(pid):
-    """Check if a process with given PID is alive by checking /proc."""
-    if pid is None or pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)  # Signal 0 just checks if process exists
-        return True
-    except (OSError, ProcessLookupError):
-        return False
-    except Exception:
-        # Fallback: check /proc directly
-        return os.path.exists("/proc/%d" % pid)
-
-
-def _get_daemon_pid():
-    """Get PID of running daemon from PID file, verify it's alive."""
-    try:
-        if os.path.exists(PID_FILE):
-            with open(PID_FILE, "r") as f:
-                pid = int(f.read().strip())
-            if _pid_is_alive(pid):
-                return pid
-            else:
-                # Stale PID file, clean up
-                try:
-                    os.remove(PID_FILE)
-                except OSError:
-                    pass
-    except Exception:
-        pass
-    return None
 
 
 def _write_daemon_pid():
@@ -1040,86 +1058,137 @@ def _cleanup_daemon_pid():
         pass
 
 
-def get_service_status():
-    """Get daemon status (read-only).
-    Returns dict with: active, enabled, status_text, pid
-    Note: App cannot start/stop the daemon due to Sailjail sandbox.
-    Use 'systemctl --user start/stop harbour-skodja' from terminal.
-    """
-    pid = _get_daemon_pid()
-    active = pid is not None
+# --- Statistics ---
 
-    # Check if autostart is enabled (symlink exists)
-    home = os.path.expanduser("~")
-    wants_dir = os.path.join(home, ".config", "systemd", "user", "default.target.wants")
-    service_link = os.path.join(wants_dir, SERVICE_NAME)
-    enabled = os.path.islink(service_link) or os.path.exists(service_link)
+STATS_DEFAULT = {
+    "api_calls_total": 0,
+    "api_calls_cached": 0,
+    "api_calls_304": 0,
+    "api_rate_limited": 0,
+    "api_errors": 0,
+    "atom_fallbacks": 0,
+    "notifications_sent": 0,
+    "checks_total": 0,
+    "checks_with_new_events": 0,
+    "last_error": None,
+    "last_error_time": None,
+    "started_at": None,
+}
 
-    if active:
-        status_text = "K\u00f8rer (PID %d)" % pid
-    else:
-        status_text = "Stoppet"
+
+def _get_stats(state):
+    """Get stats from state, initializing if needed."""
+    if "stats" not in state:
+        state["stats"] = dict(STATS_DEFAULT)
+        state["stats"]["started_at"] = datetime.now(timezone.utc).isoformat()
+    return state["stats"]
+
+
+def _increment_stat(state, key, amount=1):
+    """Increment a stat counter."""
+    stats = _get_stats(state)
+    stats[key] = stats.get(key, 0) + amount
+
+
+def _record_error(state, error_msg):
+    """Record an error in stats."""
+    stats = _get_stats(state)
+    stats["api_errors"] = stats.get("api_errors", 0) + 1
+    stats["last_error"] = str(error_msg)[:200]
+    stats["last_error_time"] = datetime.now(timezone.utc).isoformat()
+
+
+def get_statistics():
+    """Get human-readable statistics for display in the app."""
+    state = load_state()
+    stats = _get_stats(state)
+
+    # Calculate derived values
+    total_calls = stats.get("api_calls_total", 0)
+    cached = stats.get("api_calls_cached", 0)
+    cache_hit_rate = (cached / total_calls * 100) if total_calls > 0 else 0
+
+    started = stats.get("started_at")
+    uptime_str = "Ukendt"
+    if started:
+        try:
+            dt = datetime.fromisoformat(started.replace("Z", "+00:00"))
+            diff = (datetime.now(timezone.utc) - dt).total_seconds()
+            hours = int(diff / 3600)
+            minutes = int((diff % 3600) / 60)
+            if hours > 24:
+                uptime_str = f"{int(hours / 24)}d {hours % 24}t"
+            elif hours > 0:
+                uptime_str = f"{hours}t {minutes}m"
+            else:
+                uptime_str = f"{minutes}m"
+        except Exception:
+            pass
+
+    last_check = state.get("last_check")
+    last_check_str = "Aldrig"
+    if last_check:
+        try:
+            dt = datetime.fromisoformat(last_check.replace("Z", "+00:00"))
+            diff = (datetime.now(timezone.utc) - dt).total_seconds()
+            if diff < 60:
+                last_check_str = "Lige nu"
+            elif diff < 3600:
+                last_check_str = f"{int(diff/60)} min siden"
+            else:
+                last_check_str = f"{int(diff/3600)} t siden"
+        except Exception:
+            pass
+
+    last_error_time = stats.get("last_error_time")
+    last_error_str = "Ingen"
+    if last_error_time:
+        try:
+            dt = datetime.fromisoformat(last_error_time.replace("Z", "+00:00"))
+            diff = (datetime.now(timezone.utc) - dt).total_seconds()
+            if diff < 60:
+                last_error_str = "Lige nu"
+            elif diff < 3600:
+                last_error_str = f"{int(diff/60)} min siden"
+            else:
+                last_error_str = f"{int(diff/3600)} t siden"
+        except Exception:
+            pass
 
     return {
-        "active": active,
-        "enabled": enabled,
-        "status_text": status_text,
-        "pid": pid,
+        "uptime": uptime_str,
+        "last_check": last_check_str,
+        "api_calls_total": total_calls,
+        "api_calls_cached": cached,
+        "api_calls_304": stats.get("api_calls_304", 0),
+        "cache_hit_rate": round(cache_hit_rate, 1),
+        "api_rate_limited": stats.get("api_rate_limited", 0),
+        "api_errors": stats.get("api_errors", 0),
+        "atom_fallbacks": stats.get("atom_fallbacks", 0),
+        "notifications_sent": stats.get("notifications_sent", 0),
+        "checks_total": stats.get("checks_total", 0),
+        "checks_with_new_events": stats.get("checks_with_new_events", 0),
+        "last_error": stats.get("last_error", "Ingen"),
+        "last_error_time": last_error_str,
+        "watched_users": len(state.get("watched_users", [])),
+        "seen_events_count": len(state.get("seen_events", [])),
+        "notified_events_count": len(state.get("notified_events", [])),
     }
 
 
-def enable_service():
-    """Enable autostart by creating systemd symlink."""
-    home = os.path.expanduser("~")
-    wants_dir = os.path.join(home, ".config", "systemd", "user", "default.target.wants")
-    service_file = "/usr/lib/systemd/user/" + SERVICE_NAME
-    link_path = os.path.join(wants_dir, SERVICE_NAME)
+def reset_statistics():
+    """Reset all statistics counters."""
+    lock_fd = acquire_lock(timeout=10)
+    if lock_fd is None:
+        return False
     try:
-        os.makedirs(wants_dir, exist_ok=True)
-        if not os.path.exists(link_path):
-            os.symlink(service_file, link_path)
-        return {"success": True, "message": "Autostart aktiveret"}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
-def disable_service():
-    """Disable autostart by removing systemd symlink."""
-    home = os.path.expanduser("~")
-    link_path = os.path.join(home, ".config", "systemd", "user", "default.target.wants", SERVICE_NAME)
-    try:
-        if os.path.islink(link_path) or os.path.exists(link_path):
-            os.remove(link_path)
-        return {"success": True, "message": "Autostart deaktiveret"}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
-def get_last_check_time():
-    """Get the timestamp of the last successful check."""
-    state = load_state()
-    return state.get("last_check")
-
-
-def get_last_check_display():
-    """Get a human-readable string of when the last check happened."""
-    last = get_last_check_time()
-    if not last:
-        return "Aldrig"
-    try:
-        dt = datetime.fromisoformat(last.replace("Z", "+00:00"))
-        now = datetime.now(timezone.utc)
-        diff = (now - dt).total_seconds()
-        if diff < 60:
-            return "Lige nu"
-        elif diff < 3600:
-            return f"{int(diff / 60)} min siden"
-        elif diff < 86400:
-            return f"{int(diff / 3600)} t siden"
-        else:
-            return dt.strftime("%d.%m. %H:%M")
-    except Exception:
-        return last
+        state = load_state()
+        state["stats"] = dict(STATS_DEFAULT)
+        state["stats"]["started_at"] = datetime.now(timezone.utc).isoformat()
+        save_state(state)
+        return True
+    finally:
+        release_lock(lock_fd)
 
 
 def run_daemon(interval_seconds=60):

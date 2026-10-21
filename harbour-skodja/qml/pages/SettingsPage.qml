@@ -193,48 +193,71 @@ Page {
             }
 
             SectionHeader {
-                text: "Baggrundsdaemon"
+                text: "Statistik"
             }
 
             Label {
-                id: serviceStatusLabel
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "Status: ..."
+                text: "Skoðja har kørt i " + statsUptime
                 color: Theme.primaryColor
-                font.pixelSize: Theme.fontSizeMedium
+                font.pixelSize: Theme.fontSizeSmall
             }
 
             Label {
-                id: lastCheckLabel
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "Sidste tjek: ..."
+                text: "Sidste tjek: " + statsLastCheck
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
             }
 
-            TextSwitch {
-                id: autostartSwitch
-                text: "Start ved opstart"
-                description: "Start baggrundsdaemon automatisk når telefonen tændes"
-                checked: true
-                onCheckedChanged: {
-                    if (checked) {
-                        appWindow.py.call("gitwatch.github_client.enable_service", [], function(r) {})
-                    } else {
-                        appWindow.py.call("gitwatch.github_client.disable_service", [], function(r) {})
-                    }
-                }
+            SectionHeader {
+                text: "API-forbrug"
             }
 
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "For at starte eller stoppe daemonen manuelt, åbn en terminal og kør:\nsystemctl --user start harbour-skodja\nsystemctl --user stop harbour-skodja"
+                text: "API-kald i alt: " + statsApiCalls + "\nCache hits (304): " + statsCacheHits + " (" + statsCacheRate + "%)\nRate-limited: " + statsRateLimited + "\nAtom-fallbacks: " + statsAtomFallbacks + "\nAPI-fejl: " + statsApiErrors
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
+            }
+
+            SectionHeader {
+                text: "Aktivitet"
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                text: "Tjek i alt: " + statsChecks + "\nTjek med nyt: " + statsChecksNew + "\nNotifikationer sendt: " + statsNotifs + "\nOvervågede brugere: " + statsUsers + "\nGemte hændelser: " + statsSeen
+                color: Theme.secondaryColor
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                text: "Sidste fejl: " + statsLastError + " (" + statsLastErrorTime + ")"
+                color: statsApiErrors > 0 ? Theme.errorColor : Theme.secondaryColor
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.Wrap
+                visible: statsApiErrors > 0
+            }
+
+            Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Nulstil statistik"
+                onClicked: {
+                    remorseAction("Nulstil statistik?", function() {
+                        appWindow.py.call("gitwatch.github_client.reset_statistics", [], function() {
+                            refreshStatistics()
+                        })
+                    })
+                }
             }
 
             SectionHeader {
@@ -267,7 +290,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "Skoðja 0.7.4\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
+                text: "Skoðja 0.8.0\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
@@ -341,17 +364,42 @@ Page {
             notificationSound = enabled
             soundSwitch.checked = enabled
         })
-        refreshServiceStatus()
+        refreshStatistics()
     }
 
-    function refreshServiceStatus() {
-        appWindow.py.call("gitwatch.github_client.get_service_status", [], function(status) {
-            serviceStatusLabel.text = "Status: " + status.status_text
-            serviceStatusLabel.color = status.active ? Theme.highlightColor : Theme.errorColor
-            autostartSwitch.checked = status.enabled
-        })
-        appWindow.py.call("gitwatch.github_client.get_last_check_display", [], function(display) {
-            lastCheckLabel.text = "Sidste tjek: " + display
+    property string statsUptime: "..."
+    property string statsLastCheck: "..."
+    property int statsApiCalls: 0
+    property int statsCacheHits: 0
+    property real statsCacheRate: 0
+    property int statsRateLimited: 0
+    property int statsAtomFallbacks: 0
+    property int statsApiErrors: 0
+    property int statsChecks: 0
+    property int statsChecksNew: 0
+    property int statsNotifs: 0
+    property int statsUsers: 0
+    property int statsSeen: 0
+    property string statsLastError: "Ingen"
+    property string statsLastErrorTime: "-"
+
+    function refreshStatistics() {
+        appWindow.py.call("gitwatch.github_client.get_statistics", [], function(s) {
+            statsUptime = s.uptime
+            statsLastCheck = s.last_check
+            statsApiCalls = s.api_calls_total
+            statsCacheHits = s.api_calls_304
+            statsCacheRate = s.cache_hit_rate
+            statsRateLimited = s.api_rate_limited
+            statsAtomFallbacks = s.atom_fallbacks
+            statsApiErrors = s.api_errors
+            statsChecks = s.checks_total
+            statsChecksNew = s.checks_with_new_events
+            statsNotifs = s.notifications_sent
+            statsUsers = s.watched_users
+            statsSeen = s.seen_events_count
+            statsLastError = s.last_error
+            statsLastErrorTime = s.last_error_time
         })
     }
 
