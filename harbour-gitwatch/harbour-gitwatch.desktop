@@ -7,6 +7,6 @@ Name=GitWatch
 Name[da]=GitWatch
 
 [X-Sailjail]
-Permissions=Internet;Notifications
+Permissions=Internet;Notifications;Audio
 OrganizationName=com.storefyr
 ApplicationName=harbour-gitwatch

@@ -222,7 +222,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "GitWatch 0.3.2\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nBaggrundstjek hvert minut når skærmen er låst."
+                text: "GitWatch 0.3.3\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nBaggrundstjek hvert minut når skærmen er låst."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap

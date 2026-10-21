@@ -33,6 +33,7 @@ OTHER_FILES += \
     rpm/harbour-gitwatch.spec \
     harbour-gitwatch.desktop \
     icons/*.png \
+    sounds/notification.wav \
     README.md \
     INSTALL.md \
     QUICKSTART.md \

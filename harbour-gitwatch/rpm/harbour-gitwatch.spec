@@ -19,7 +19,7 @@
 
 Name:           harbour-gitwatch
 Summary:        GitHub Activity Notifier
-Version:        0.3.2
+Version:        0.3.3
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -29,6 +29,7 @@ Source0:        %{name}-%{version}.tar.bz2
 Requires:       sailfishsilica-qt5 >= 0.10.9
 Requires:       pyotherside-qml-plugin-python3-qt5 >= 1.3.0
 Requires:       python3-base
+Requires:       pulseaudio-utils
 
 BuildRequires:  pkgconfig(sailfishapp)
 BuildRequires:  pkgconfig(Qt5Core)
@@ -66,6 +67,9 @@ install -m 644 icons/%{name}-256.png %{buildroot}%{_datadir}/icons/hicolor/256x2
 
 install -d %{buildroot}%{_datadir}/%{name}
 cp -r python %{buildroot}%{_datadir}/%{name}/
+
+install -d %{buildroot}%{_datadir}/%{name}/sounds
+install -m 644 sounds/notification.wav %{buildroot}%{_datadir}/%{name}/sounds/notification.wav
 
 install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'

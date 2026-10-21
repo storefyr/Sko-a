@@ -45,7 +45,7 @@ Page {
         appName: "harbour-gitwatch"
         appIcon: "harbour-gitwatch"
         category: "gitwatch.release"
-        sound: "default"
+        sound: "message-new-instant"
         previewSummary: ""
         previewBody: ""
         summary: ""
@@ -232,7 +232,10 @@ Page {
                             releaseBody += " (+" + (releaseEvents.length - 1) + " flere)"
                         }
                         appWindow.py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(soundEnabled) {
-                            showNotification(releaseSummary, releaseBody, soundEnabled)
+                            if (soundEnabled) {
+                                appWindow.py.call("gitwatch.github_client.play_notification_sound", [], function() {})
+                            }
+                            showNotification(releaseSummary, releaseBody, false)
                         })
                     }
                 }
