@@ -617,25 +617,19 @@ class TestConciseReleaseNotifications(unittest.TestCase):
 
 
 class TestServiceControl(unittest.TestCase):
-    """Tests for systemd service control functions (v0.6.7)."""
+    """Tests for daemon status and autostart control (v0.7.2)."""
 
     def test_service_functions_exist(self):
         from gitwatch.github_client import (
             get_service_status,
-            start_service,
-            stop_service,
             enable_service,
             disable_service,
-            restart_service,
             get_last_check_display,
         )
 
         self.assertTrue(callable(get_service_status))
-        self.assertTrue(callable(start_service))
-        self.assertTrue(callable(stop_service))
         self.assertTrue(callable(enable_service))
         self.assertTrue(callable(disable_service))
-        self.assertTrue(callable(restart_service))
         self.assertTrue(callable(get_last_check_display))
 
     def test_service_name_constant(self):
@@ -647,7 +641,6 @@ class TestServiceControl(unittest.TestCase):
         from gitwatch.github_client import get_last_check_display
         import gitwatch.github_client as gc
 
-        # Ensure state has no last_check
         state = gc.load_state()
         state["last_check"] = None
         gc.save_state(state)
@@ -660,12 +653,20 @@ class TestServiceControl(unittest.TestCase):
             content = f.read()
         self.assertIn("Baggrundsdaemon", content)
         self.assertIn("get_service_status", content)
-        self.assertIn("start_service", content)
-        self.assertIn("stop_service", content)
-        self.assertIn("restart_service", content)
         self.assertIn("enable_service", content)
         self.assertIn("disable_service", content)
         self.assertIn("refreshServiceStatus", content)
+        # Start/Stop buttons should NOT be present
+        self.assertNotIn("start_service", content)
+        self.assertNotIn("stop_service", content)
+        self.assertNotIn("restart_service", content)
+
+    def test_spec_uses_simple_service(self):
+        spec_path = os.path.join(os.path.dirname(__file__), "..", "rpm", "harbour-skodja.spec")
+        with open(spec_path) as f:
+            content = f.read()
+        self.assertIn("Type=simple", content)
+        self.assertIn("Restart=on-failure", content)
 
 
 class TestRateLimitHandling(unittest.TestCase):
@@ -812,7 +813,8 @@ class TestPackagingFiles(unittest.TestCase):
             content = f.read()
         self.assertIn("python3", content)
         self.assertIn("github_client.py", content)
-        self.assertIn("Type=oneshot", content)
+        self.assertIn("Type=simple", content)
+        self.assertIn("Restart=on-failure", content)
         self.assertNotIn("harbour-skodja.timer", content)
 
     def test_spec_runs_python_daemon_directly(self):

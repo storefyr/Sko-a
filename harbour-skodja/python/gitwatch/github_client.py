@@ -932,10 +932,6 @@ def _systemctl_user(*args):
         return False, str(e)
 
 
-_DAEMON_PID_FILE = os.path.join(DATA_DIR, "daemon.pid")
-_DAEMON_LOG_FILE = os.path.join(DATA_DIR, "daemon.log")
-
-
 def _get_daemon_pid():
     """Get PID of running daemon process, or None if not running."""
     try:
@@ -950,15 +946,14 @@ def _get_daemon_pid():
     return None
 
 
-def _is_daemon_running():
-    """Check if daemon process is running."""
-    return _get_daemon_pid() is not None
-
-
 def get_service_status():
-    """Get daemon status. Returns dict with: active, enabled, status_text, pid"""
-    active = _is_daemon_running()
-    pid = _get_daemon_pid() if active else None
+    """Get daemon status (read-only).
+    Returns dict with: active, enabled, status_text, pid
+    Note: App cannot start/stop the daemon due to Sailjail sandbox.
+    Use 'systemctl --user start/stop harbour-skodja' from terminal.
+    """
+    pid = _get_daemon_pid()
+    active = pid is not None
 
     # Check if autostart is enabled (symlink exists)
     home = os.path.expanduser("~")
@@ -967,14 +962,9 @@ def get_service_status():
     enabled = os.path.islink(service_link) or os.path.exists(service_link)
 
     if active:
-        status_text = "K\u00f8rer (PID %d)" % pid if pid else "K\u00f8rer"
+        status_text = "K\u00f8rer (PID %d)" % pid
     else:
-        # Check if service file exists
-        service_file = "/usr/lib/systemd/user/" + SERVICE_NAME
-        if os.path.exists(service_file):
-            status_text = "Stoppet"
-        else:
-            status_text = "Ikke installeret"
+        status_text = "Stoppet"
 
     return {
         "active": active,
@@ -984,69 +974,8 @@ def get_service_status():
     }
 
 
-def start_service():
-    """Start the daemon directly as a background process.
-    Does NOT use systemd - just launches python3 in background.
-    """
-    if _is_daemon_running():
-        return {"success": True, "message": "Allerede k\u00f8rende"}
-
-    ensure_data_dir()
-    script_path = "/usr/share/harbour-skodja/python/gitwatch/github_client.py"
-
-    if not os.path.exists(script_path):
-        return {"success": False, "message": "Script ikke fundet: " + script_path}
-
-    try:
-        # Start daemon in background with nohup, detached from terminal
-        with open(_DAEMON_LOG_FILE, "a") as logf:
-            proc = subprocess.Popen(
-                ["/usr/bin/python3", script_path, "60"],
-                stdout=logf,
-                stderr=logf,
-                stdin=subprocess.DEVNULL,
-                start_new_session=True,  # Detach from parent process group
-            )
-        # Save PID
-        with open(_DAEMON_PID_FILE, "w") as f:
-            f.write(str(proc.pid))
-        return {"success": True, "message": "Daemon startet (PID %d)" % proc.pid}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
-def stop_service():
-    """Stop the daemon by killing the process."""
-    pid = _get_daemon_pid()
-    if pid is None:
-        return {"success": True, "message": "Var ikke k\u00f8rende"}
-
-    try:
-        # Try graceful terminate first
-        subprocess.run(["kill", str(pid)], capture_output=True, timeout=5)
-        # Wait a bit and force kill if still running
-        time.sleep(1)
-        if _get_daemon_pid() is not None:
-            subprocess.run(["kill", "-9", str(pid)], capture_output=True, timeout=5)
-        # Clean up PID file
-        if os.path.exists(_DAEMON_PID_FILE):
-            os.remove(_DAEMON_PID_FILE)
-        return {"success": True, "message": "Daemon stoppet"}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
-def restart_service():
-    """Restart the daemon."""
-    stop_service()
-    time.sleep(1)
-    return start_service()
-
-
 def enable_service():
-    """Enable autostart by creating systemd symlink manually.
-    This only affects boot autostart, not the running daemon.
-    """
+    """Enable autostart by creating systemd symlink."""
     home = os.path.expanduser("~")
     wants_dir = os.path.join(home, ".config", "systemd", "user", "default.target.wants")
     service_file = "/usr/lib/systemd/user/" + SERVICE_NAME
