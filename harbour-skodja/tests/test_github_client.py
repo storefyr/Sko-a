@@ -618,10 +618,12 @@ class TestPackagingFiles(unittest.TestCase):
             self.assertIn("x-harbour.harbour-skodja.release", content, f"{qml_path} missing release category")
 
     def test_daemon_uses_dbus_notifications(self):
-        daemon_path = os.path.join(os.path.dirname(__file__), "..", "qml", "skodja-daemon.qml")
-        with open(daemon_path) as f:
+        py_path = os.path.join(os.path.dirname(__file__), "..", "python", "gitwatch", "github_client.py")
+        with open(py_path) as f:
             content = f.read()
-        self.assertIn("check_and_notify", content)
+        self.assertIn("def check_and_notify", content)
+        self.assertIn("def publish_notification", content)
+        self.assertIn("dbus-send", content)
 
     def test_python_has_dbus_notification_functions(self):
         py_path = os.path.join(os.path.dirname(__file__), "..", "python", "gitwatch", "github_client.py")
@@ -637,19 +639,25 @@ class TestPackagingFiles(unittest.TestCase):
         spec_path = os.path.join(self.RPM_DIR, "harbour-skodja.spec")
         with open(spec_path) as f:
             content = f.read()
-        self.assertIn("skodja-daemon.qml", content)
+        self.assertIn("harbour-skodja-daemon", content)
         self.assertIn("Type=simple", content)
         self.assertIn("Restart=on-failure", content)
-        self.assertNotIn(".timer", content.lower().replace(".timer", "TIMER_DISABLED"))
         self.assertNotIn("harbour-skodja.timer", content)
 
-    def test_daemon_qml_has_timer(self):
-        daemon_path = os.path.join(os.path.dirname(__file__), "..", "qml", "skodja-daemon.qml")
+    def test_daemon_script_exists(self):
+        daemon_path = os.path.join(os.path.dirname(__file__), "..", "skodja-daemon.sh")
+        self.assertTrue(os.path.exists(daemon_path))
         with open(daemon_path) as f:
             content = f.read()
-        self.assertIn("Timer", content)
-        self.assertIn("60000", content)
-        self.assertIn("check_and_notify", content)
+        self.assertIn("github_client.py", content)
+        self.assertIn("60", content)
+
+    def test_python_has_run_daemon(self):
+        py_path = os.path.join(os.path.dirname(__file__), "..", "python", "gitwatch", "github_client.py")
+        with open(py_path) as f:
+            content = f.read()
+        self.assertIn("def run_daemon", content)
+        self.assertIn('if __name__ == "__main__"', content)
 
 
 if __name__ == "__main__":

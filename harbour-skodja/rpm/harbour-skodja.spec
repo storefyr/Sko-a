@@ -19,7 +19,7 @@
 
 Name:           harbour-skodja
 Summary:        Skoðja - GitHub Activity Notifier
-Version:        0.6.1
+Version:        0.6.2
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -75,6 +75,9 @@ install -m 644 config/x-harbour.harbour-skodja.event.conf %{buildroot}%{_datadir
 install -m 644 config/x-harbour.harbour-skodja.release.conf %{buildroot}%{_datadir}/lipstick/notificationcategories/
 
 install -d %{buildroot}%{_userunitdir}
+install -d %{buildroot}%{_bindir}
+install -m 755 skodja-daemon.sh %{buildroot}%{_bindir}/harbour-skodja-daemon
+
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
 Description=Skoðja Background Daemon
@@ -82,7 +85,7 @@ After=lipstick.service graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/sailjail -p harbour-skodja.desktop /usr/bin/invoker --type=qt5 -s /usr/bin/sailfish-qml /usr/share/harbour-skodja/qml/skodja-daemon.qml
+ExecStart=/usr/bin/sailjail -p harbour-skodja.desktop /usr/bin/harbour-skodja-daemon
 Restart=on-failure
 RestartSec=10s
 
@@ -105,6 +108,7 @@ systemctl --user restart lipstick || true
 %files
 %defattr(-,root,root,-)
 %{_bindir}/%{name}
+%{_bindir}/harbour-skodja-daemon
 %{_datadir}/%{name}
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/86x86/apps/%{name}.png

@@ -856,3 +856,33 @@ def check_and_notify():
 
     except Exception as e:
         return {"status": "error", "error": str(e), "notified": 0}
+
+
+def run_daemon(interval_seconds=60):
+    """Run as a persistent background daemon.
+    Checks for new events and publishes notifications at regular intervals.
+    This runs entirely in Python without any QML dependency.
+    """
+    print("Skoða daemon started (interval: {}s)".format(interval_seconds))
+    while True:
+        try:
+            result = check_and_notify()
+            if result.get("status") == "ok" and result.get("notified", 0) > 0:
+                print("Skoða daemon: Published {} notification(s)".format(result["notified"]))
+            elif result.get("status") == "error":
+                print("Skoða daemon error: " + str(result.get("error", "unknown")))
+        except Exception as e:
+            print("Skoða daemon exception: " + str(e))
+        time.sleep(interval_seconds)
+
+
+if __name__ == "__main__":
+    import sys
+
+    interval = 60
+    if len(sys.argv) > 1:
+        try:
+            interval = int(sys.argv[1])
+        except ValueError:
+            pass
+    run_daemon(interval)
