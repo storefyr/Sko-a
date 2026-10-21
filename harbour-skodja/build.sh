@@ -18,7 +18,7 @@
 set -e
 
 APP_NAME="harbour-skodja"
-VERSION="0.8.0"
+VERSION="0.8.1"
 PACKAGE_NAME="${APP_NAME}-${VERSION}"
 
 cd "$(dirname "$0")"

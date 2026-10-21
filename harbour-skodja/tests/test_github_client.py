@@ -855,3 +855,24 @@ class TestPackagingFiles(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_stats_persisted_after_increment(self):
+        """Stats should be saved to disk when incremented via api_get."""
+        import gitwatch.github_client as gc
+
+        gc.reset_statistics()
+
+        # Simulate what api_get does
+        lock_fd = gc.acquire_lock(timeout=5)
+        try:
+            state = gc.load_state()
+            gc._increment_stat(state, "api_calls_total")
+            gc.save_state(state)
+        finally:
+            if lock_fd is not None:
+                gc.release_lock(lock_fd)
+
+        # Read fresh from disk
+        stats = gc.get_statistics()
+        self.assertEqual(stats["api_calls_total"], 1)
+        gc.reset_statistics()

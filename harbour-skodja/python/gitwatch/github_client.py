@@ -190,6 +190,7 @@ def api_get(url):
         state = load_state()
         cached_etag, cached_data = _get_cached_etag(state, url)
         _increment_stat(state, "api_calls_total")
+        save_state(state)
     finally:
         if lock_fd is not None:
             release_lock(lock_fd)
@@ -1100,8 +1101,15 @@ def _record_error(state, error_msg):
 
 def get_statistics():
     """Get human-readable statistics for display in the app."""
-    state = load_state()
-    stats = _get_stats(state)
+    lock_fd = acquire_lock(timeout=5)
+    try:
+        state = load_state()
+        stats = _get_stats(state)
+        # Save in case stats were just initialized
+        save_state(state)
+    finally:
+        if lock_fd is not None:
+            release_lock(lock_fd)
 
     # Calculate derived values
     total_calls = stats.get("api_calls_total", 0)
