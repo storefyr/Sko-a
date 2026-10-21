@@ -19,7 +19,7 @@
 
 Name:           harbour-gitwatch
 Summary:        GitHub Activity Notifier
-Version:        0.4.0
+Version:        0.4.1
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -77,37 +77,28 @@ install -m 644 config/x-harbour.harbour-gitwatch.release.conf %{buildroot}%{_dat
 install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
-Description=GitWatch Background Check
-After=lipstick.service
+Description=GitWatch Background Daemon
+After=lipstick.service graphical-session.target
 
 [Service]
-Type=oneshot
-ExecStart=/usr/bin/sailjail -p harbour-gitwatch.desktop /usr/bin/invoker --type=qt5 -s /usr/bin/sailfish-qml /usr/share/harbour-gitwatch/qml/background-check.qml
-SERVICE
-
-cat > %{buildroot}%{_userunitdir}/%{name}.timer <<'TIMER'
-[Unit]
-Description=GitWatch Periodic Check
-
-[Timer]
-OnBootSec=2min
-OnUnitActiveSec=1min
-AccuracySec=10s
-Persistent=true
+Type=simple
+ExecStart=/usr/bin/sailjail -p harbour-gitwatch.desktop /usr/bin/invoker --type=qt5 -s /usr/bin/sailfish-qml /usr/share/harbour-gitwatch/qml/gitwatch-daemon.qml
+Restart=on-failure
+RestartSec=10s
 
 [Install]
-WantedBy=timers.target
-TIMER
+WantedBy=default.target
+SERVICE
 
 %post
 systemctl --user daemon-reload || true
-systemctl --user enable harbour-gitwatch.timer || true
-systemctl --user start harbour-gitwatch.timer || true
+systemctl --user enable harbour-gitwatch.service || true
+systemctl --user restart harbour-gitwatch.service || true
 systemctl --user restart lipstick || true
 
 %postun
-systemctl --user stop harbour-gitwatch.timer || true
-systemctl --user disable harbour-gitwatch.timer || true
+systemctl --user stop harbour-gitwatch.service || true
+systemctl --user disable harbour-gitwatch.service || true
 systemctl --user daemon-reload || true
 systemctl --user restart lipstick || true
 
@@ -121,6 +112,5 @@ systemctl --user restart lipstick || true
 %{_datadir}/icons/hicolor/128x128/apps/%{name}.png
 %{_datadir}/icons/hicolor/256x256/apps/%{name}.png
 %{_userunitdir}/%{name}.service
-%{_userunitdir}/%{name}.timer
 %{_datadir}/lipstick/notificationcategories/x-harbour.harbour-gitwatch.event.conf
 %{_datadir}/lipstick/notificationcategories/x-harbour.harbour-gitwatch.release.conf

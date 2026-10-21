@@ -518,6 +518,7 @@ class TestQmlSyntax(unittest.TestCase):
             "pages/SettingsPage.qml",
             "cover/CoverPage.qml",
             "background-check.qml",
+            "gitwatch-daemon.qml",
         ]
         for f in expected_files:
             path = os.path.join(self.QML_DIR, f)
@@ -544,6 +545,7 @@ class TestQmlSyntax(unittest.TestCase):
             "pages/SettingsPage.qml",
             "cover/CoverPage.qml",
             "background-check.qml",
+            "gitwatch-daemon.qml",
         ]
         for f in qml_files:
             path = os.path.join(self.QML_DIR, f)
@@ -610,12 +612,31 @@ class TestPackagingFiles(unittest.TestCase):
         qml_files = [
             os.path.join(os.path.dirname(__file__), "..", "qml", "pages", "MainPage.qml"),
             os.path.join(os.path.dirname(__file__), "..", "qml", "background-check.qml"),
+            os.path.join(os.path.dirname(__file__), "..", "qml", "gitwatch-daemon.qml"),
         ]
         for qml_path in qml_files:
             with open(qml_path) as f:
                 content = f.read()
             self.assertIn("x-harbour.harbour-gitwatch.event", content, f"{qml_path} missing event category")
             self.assertIn("x-harbour.harbour-gitwatch.release", content, f"{qml_path} missing release category")
+
+    def test_spec_uses_daemon_service_not_timer(self):
+        spec_path = os.path.join(self.RPM_DIR, "harbour-gitwatch.spec")
+        with open(spec_path) as f:
+            content = f.read()
+        self.assertIn("gitwatch-daemon.qml", content)
+        self.assertIn("Type=simple", content)
+        self.assertIn("Restart=on-failure", content)
+        self.assertNotIn(".timer", content.lower().replace(".timer", "TIMER_DISABLED"))
+        self.assertNotIn("harbour-gitwatch.timer", content)
+
+    def test_daemon_qml_has_timer(self):
+        daemon_path = os.path.join(os.path.dirname(__file__), "..", "qml", "gitwatch-daemon.qml")
+        with open(daemon_path) as f:
+            content = f.read()
+        self.assertIn("Timer", content)
+        self.assertIn("60000", content)
+        self.assertIn("check_for_updates", content)
 
 
 if __name__ == "__main__":

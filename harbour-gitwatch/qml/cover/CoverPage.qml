@@ -57,10 +57,8 @@ CoverBackground {
         CoverAction {
             iconSource: "image://theme/icon-cover-refresh"
             onTriggered: {
-                appWindow.py.call("gitwatch.github_client.run_background_check", [], function(result) {
-                    if (result.status === "ok") {
-                        cover.newCount = result.count || 0
-                    }
+                appWindow.py.call("gitwatch.github_client.check_for_updates", [], function(newEvents) {
+                    cover.newCount = newEvents.length
                 })
             }
         }

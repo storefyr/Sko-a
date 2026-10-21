@@ -28,6 +28,7 @@ OTHER_FILES += \
     qml/pages/SettingsPage.qml \
     qml/cover/CoverPage.qml \
     qml/background-check.qml \
+    qml/gitwatch-daemon.qml \
     python/gitwatch/__init__.py \
     python/gitwatch/github_client.py \
     rpm/harbour-gitwatch.spec \
@@ -49,6 +50,7 @@ DISTFILES += \
     qml/pages/SettingsPage.qml \
     qml/cover/CoverPage.qml \
     qml/background-check.qml \
+    qml/gitwatch-daemon.qml \
     python/gitwatch/__init__.py \
     python/gitwatch/github_client.py \
     harbour-gitwatch.desktop \
