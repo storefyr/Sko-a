@@ -872,7 +872,7 @@ def check_and_notify():
 
         if other_events:
             first = other_events[0]
-            summary = "Skoðja: " + first.get("summary", "Ny aktivitet")
+            summary = first.get("summary", "Ny aktivitet")
             body = first.get("user", "") + ": " + first.get("body", "")
             if len(other_events) > 1:
                 body += " (+" + str(len(other_events) - 1) + " flere)"
@@ -882,7 +882,7 @@ def check_and_notify():
         if release_events:
             sound_enabled = is_notification_sound_enabled()
             first = release_events[0]
-            summary = "Skoðja: " + first.get("summary", "Ny release")
+            summary = first.get("summary", "Ny release")
             body = first.get("body", "")
             if len(release_events) > 1:
                 body += " (+" + str(len(release_events) - 1) + " flere)"
