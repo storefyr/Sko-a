@@ -616,6 +616,58 @@ class TestConciseReleaseNotifications(unittest.TestCase):
         self.assertNotIn('"body": f"{tag_name} i {repo}', src)
 
 
+class TestServiceControl(unittest.TestCase):
+    """Tests for systemd service control functions (v0.6.7)."""
+
+    def test_service_functions_exist(self):
+        from gitwatch.github_client import (
+            get_service_status,
+            start_service,
+            stop_service,
+            enable_service,
+            disable_service,
+            restart_service,
+            get_last_check_display,
+        )
+
+        self.assertTrue(callable(get_service_status))
+        self.assertTrue(callable(start_service))
+        self.assertTrue(callable(stop_service))
+        self.assertTrue(callable(enable_service))
+        self.assertTrue(callable(disable_service))
+        self.assertTrue(callable(restart_service))
+        self.assertTrue(callable(get_last_check_display))
+
+    def test_service_name_constant(self):
+        from gitwatch.github_client import SERVICE_NAME
+
+        self.assertEqual(SERVICE_NAME, "harbour-skodja.service")
+
+    def test_get_last_check_display_never(self):
+        from gitwatch.github_client import get_last_check_display
+        import gitwatch.github_client as gc
+
+        # Ensure state has no last_check
+        state = gc.load_state()
+        state["last_check"] = None
+        gc.save_state(state)
+        result = get_last_check_display()
+        self.assertEqual(result, "Aldrig")
+
+    def test_settings_page_has_service_section(self):
+        path = os.path.join(os.path.dirname(__file__), "..", "qml", "pages", "SettingsPage.qml")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("Baggrundsdaemon", content)
+        self.assertIn("get_service_status", content)
+        self.assertIn("start_service", content)
+        self.assertIn("stop_service", content)
+        self.assertIn("restart_service", content)
+        self.assertIn("enable_service", content)
+        self.assertIn("disable_service", content)
+        self.assertIn("refreshServiceStatus", content)
+
+
 class TestRateLimitHandling(unittest.TestCase):
     """Test rate limit fallback to Atom feed."""
 

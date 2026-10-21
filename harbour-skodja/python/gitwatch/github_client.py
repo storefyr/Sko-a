@@ -895,6 +895,100 @@ def check_and_notify():
         return {"status": "error", "error": str(e), "notified": 0}
 
 
+SERVICE_NAME = "harbour-skodja.service"
+
+
+def _systemctl_user(*args):
+    """Run systemctl --user with given arguments, return (success, output)."""
+    cmd = ["systemctl", "--user"] + list(args)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        return result.returncode == 0, result.stdout.strip() + result.stderr.strip()
+    except Exception as e:
+        return False, str(e)
+
+
+def get_service_status():
+    """Get the status of the harbour-skodja systemd user service.
+    Returns dict with: active, enabled, status_text
+    """
+    ok, output = _systemctl_user("is-active", SERVICE_NAME)
+    active = ok and output.strip() == "active"
+
+    ok2, output2 = _systemctl_user("is-enabled", SERVICE_NAME)
+    enabled = ok2 and output2.strip() in ("enabled", "static")
+
+    if active:
+        status_text = "Kører"
+    elif ok:
+        status_text = "Stoppet"
+    else:
+        status_text = "Ukendt"
+
+    return {
+        "active": active,
+        "enabled": enabled,
+        "status_text": status_text,
+    }
+
+
+def start_service():
+    """Start the harbour-skodja service."""
+    ok, output = _systemctl_user("start", SERVICE_NAME)
+    return {"success": ok, "message": output}
+
+
+def stop_service():
+    """Stop the harbour-skodja service."""
+    ok, output = _systemctl_user("stop", SERVICE_NAME)
+    return {"success": ok, "message": output}
+
+
+def enable_service():
+    """Enable the harbour-skodja service (start on boot)."""
+    ok, output = _systemctl_user("enable", SERVICE_NAME)
+    return {"success": ok, "message": output}
+
+
+def disable_service():
+    """Disable the harbour-skodja service (don't start on boot)."""
+    ok, output = _systemctl_user("disable", SERVICE_NAME)
+    return {"success": ok, "message": output}
+
+
+def restart_service():
+    """Restart the harbour-skodja service."""
+    ok, output = _systemctl_user("restart", SERVICE_NAME)
+    return {"success": ok, "message": output}
+
+
+def get_last_check_time():
+    """Get the timestamp of the last successful check."""
+    state = load_state()
+    return state.get("last_check")
+
+
+def get_last_check_display():
+    """Get a human-readable string of when the last check happened."""
+    last = get_last_check_time()
+    if not last:
+        return "Aldrig"
+    try:
+        dt = datetime.fromisoformat(last.replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        diff = (now - dt).total_seconds()
+        if diff < 60:
+            return "Lige nu"
+        elif diff < 3600:
+            return f"{int(diff / 60)} min siden"
+        elif diff < 86400:
+            return f"{int(diff / 3600)} t siden"
+        else:
+            return dt.strftime("%d.%m. %H:%M")
+    except Exception:
+        return last
+
+
 def run_daemon(interval_seconds=60):
     """Run as a persistent background daemon.
     Checks for new events and publishes notifications at regular intervals.

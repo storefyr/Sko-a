@@ -193,6 +193,79 @@ Page {
             }
 
             SectionHeader {
+                text: "Baggrundsdaemon"
+            }
+
+            Label {
+                id: serviceStatusLabel
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                text: "Status: ..."
+                color: Theme.primaryColor
+                font.pixelSize: Theme.fontSizeMedium
+            }
+
+            Label {
+                id: lastCheckLabel
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                text: "Sidste tjek: ..."
+                color: Theme.secondaryColor
+                font.pixelSize: Theme.fontSizeSmall
+            }
+
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.paddingMedium
+
+                Button {
+                    id: startBtn
+                    text: "Start"
+                    enabled: false
+                    onClicked: {
+                        appWindow.py.call("gitwatch.github_client.start_service", [], function(r) {
+                            refreshServiceStatus()
+                        })
+                    }
+                }
+
+                Button {
+                    id: stopBtn
+                    text: "Stop"
+                    enabled: false
+                    onClicked: {
+                        appWindow.py.call("gitwatch.github_client.stop_service", [], function(r) {
+                            refreshServiceStatus()
+                        })
+                    }
+                }
+
+                Button {
+                    id: restartBtn
+                    text: "Genstart"
+                    onClicked: {
+                        appWindow.py.call("gitwatch.github_client.restart_service", [], function(r) {
+                            refreshServiceStatus()
+                        })
+                    }
+                }
+            }
+
+            TextSwitch {
+                id: autostartSwitch
+                text: "Start ved opstart"
+                description: "Start baggrundsdaemon automatisk når telefonen tændes"
+                checked: true
+                onCheckedChanged: {
+                    if (checked) {
+                        appWindow.py.call("gitwatch.github_client.enable_service", [], function(r) {})
+                    } else {
+                        appWindow.py.call("gitwatch.github_client.disable_service", [], function(r) {})
+                    }
+                }
+            }
+
+            SectionHeader {
                 text: "Avanceret"
             }
 
@@ -222,7 +295,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "Skoðja 0.6.6\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
+                text: "Skoðja 0.6.7\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
@@ -295,6 +368,20 @@ Page {
         appWindow.py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(enabled) {
             notificationSound = enabled
             soundSwitch.checked = enabled
+        })
+        refreshServiceStatus()
+    }
+
+    function refreshServiceStatus() {
+        appWindow.py.call("gitwatch.github_client.get_service_status", [], function(status) {
+            serviceStatusLabel.text = "Status: " + status.status_text
+            serviceStatusLabel.color = status.active ? Theme.highlightColor : Theme.errorColor
+            startBtn.enabled = !status.active
+            stopBtn.enabled = status.active
+            autostartSwitch.checked = status.enabled
+        })
+        appWindow.py.call("gitwatch.github_client.get_last_check_display", [], function(display) {
+            lastCheckLabel.text = "Sidste tjek: " + display
         })
     }
 
