@@ -113,12 +113,15 @@ class TestStateManagement(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.original_data_dir = github_client.DATA_DIR
         self.original_state_file = github_client.STATE_FILE
+        self.original_lock_file = github_client.LOCK_FILE
         github_client.DATA_DIR = self.temp_dir
         github_client.STATE_FILE = os.path.join(self.temp_dir, "state.json")
+        github_client.LOCK_FILE = os.path.join(self.temp_dir, "state.lock")
 
     def tearDown(self):
         github_client.DATA_DIR = self.original_data_dir
         github_client.STATE_FILE = self.original_state_file
+        github_client.LOCK_FILE = self.original_lock_file
         import shutil
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -129,11 +132,13 @@ class TestStateManagement(unittest.TestCase):
         self.assertTrue(state["notifications_enabled"])
         self.assertIsNone(state["last_check"])
         self.assertEqual(state["seen_events"], [])
+        self.assertEqual(state["notified_events"], [])
 
     def test_save_and_load_state(self):
         state = {
             "last_check": "2026-10-20T10:00:00Z",
             "seen_events": ["1", "2", "3"],
+            "notified_events": ["1"],
             "watched_users": ["user1", "user2"],
             "notifications_enabled": False,
         }
@@ -141,6 +146,7 @@ class TestStateManagement(unittest.TestCase):
         loaded = github_client.load_state()
         self.assertEqual(loaded["watched_users"], ["user1", "user2"])
         self.assertFalse(loaded["notifications_enabled"])
+        self.assertEqual(loaded["notified_events"], ["1"])
 
     def test_corrupt_state_file(self):
         with open(github_client.STATE_FILE, "w") as f:
@@ -150,7 +156,7 @@ class TestStateManagement(unittest.TestCase):
 
     def test_max_events_stored(self):
         state = github_client.load_state()
-        state["seen_events"] = [str(i) for i in range(200)]
+        state["seen_events"] = [str(i) for i in range(github_client.MAX_EVENTS_STORED + 100)]
         github_client.save_state(state)
         loaded = github_client.load_state()
         self.assertEqual(len(loaded["seen_events"]), github_client.MAX_EVENTS_STORED)
@@ -163,12 +169,15 @@ class TestUserManagement(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.original_data_dir = github_client.DATA_DIR
         self.original_state_file = github_client.STATE_FILE
+        self.original_lock_file = github_client.LOCK_FILE
         github_client.DATA_DIR = self.temp_dir
         github_client.STATE_FILE = os.path.join(self.temp_dir, "state.json")
+        github_client.LOCK_FILE = os.path.join(self.temp_dir, "state.lock")
 
     def tearDown(self):
         github_client.DATA_DIR = self.original_data_dir
         github_client.STATE_FILE = self.original_state_file
+        github_client.LOCK_FILE = self.original_lock_file
         import shutil
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -286,12 +295,15 @@ class TestNotificationSettings(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.original_data_dir = github_client.DATA_DIR
         self.original_state_file = github_client.STATE_FILE
+        self.original_lock_file = github_client.LOCK_FILE
         github_client.DATA_DIR = self.temp_dir
         github_client.STATE_FILE = os.path.join(self.temp_dir, "state.json")
+        github_client.LOCK_FILE = os.path.join(self.temp_dir, "state.lock")
 
     def tearDown(self):
         github_client.DATA_DIR = self.original_data_dir
         github_client.STATE_FILE = self.original_state_file
+        github_client.LOCK_FILE = self.original_lock_file
         import shutil
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -316,12 +328,15 @@ class TestNotificationFilter(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.original_data_dir = github_client.DATA_DIR
         self.original_state_file = github_client.STATE_FILE
+        self.original_lock_file = github_client.LOCK_FILE
         github_client.DATA_DIR = self.temp_dir
         github_client.STATE_FILE = os.path.join(self.temp_dir, "state.json")
+        github_client.LOCK_FILE = os.path.join(self.temp_dir, "state.lock")
 
     def tearDown(self):
         github_client.DATA_DIR = self.original_data_dir
         github_client.STATE_FILE = self.original_state_file
+        github_client.LOCK_FILE = self.original_lock_file
         import shutil
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -365,12 +380,15 @@ class TestEventDeduplication(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.original_data_dir = github_client.DATA_DIR
         self.original_state_file = github_client.STATE_FILE
+        self.original_lock_file = github_client.LOCK_FILE
         github_client.DATA_DIR = self.temp_dir
         github_client.STATE_FILE = os.path.join(self.temp_dir, "state.json")
+        github_client.LOCK_FILE = os.path.join(self.temp_dir, "state.lock")
 
     def tearDown(self):
         github_client.DATA_DIR = self.original_data_dir
         github_client.STATE_FILE = self.original_state_file
+        github_client.LOCK_FILE = self.original_lock_file
         import shutil
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -420,6 +438,61 @@ class TestEventDeduplication(unittest.TestCase):
             self.assertEqual(len(new_events), 1)
             new_events2 = github_client.check_for_updates()
             self.assertEqual(len(new_events2), 0)
+
+    def test_check_for_updates_no_duplicate_notifications(self):
+        fake_events = [
+            {
+                "id": "release-123",
+                "type": "ReleaseEvent",
+                "repo": "a/b",
+                "summary": "Ny release",
+                "body": "v1.0 i a/b",
+                "created_at": "2026-01-01",
+                "url": "https://github.com/a/b/releases",
+            },
+            {
+                "id": "push-456",
+                "type": "PushEvent",
+                "repo": "a/b",
+                "summary": "Push til main",
+                "body": "3 commits",
+                "created_at": "2026-01-02",
+                "url": "",
+            },
+        ]
+        with patch.object(github_client, "fetch_user_events", return_value=fake_events):
+            first = github_client.check_for_updates()
+            self.assertEqual(len(first), 2)
+
+            second = github_client.check_for_updates()
+            self.assertEqual(len(second), 0)
+
+            third = github_client.check_for_updates()
+            self.assertEqual(len(third), 0)
+
+            state = github_client.load_state()
+            self.assertIn("release-123", state["notified_events"])
+            self.assertIn("push-456", state["notified_events"])
+
+    def test_notified_events_persisted(self):
+        github_client.reset_seen_events()
+        fake_events = [
+            {
+                "id": "event-1",
+                "type": "ReleaseEvent",
+                "repo": "a/b",
+                "summary": "Ny release",
+                "body": "v1.0",
+                "created_at": "2026-01-01",
+                "url": "",
+            },
+        ]
+        with patch.object(github_client, "fetch_user_events", return_value=fake_events):
+            github_client.check_for_updates()
+
+            state = github_client.load_state()
+            self.assertEqual(len(state["notified_events"]), 1)
+            self.assertEqual(state["notified_events"][0], "event-1")
 
 
 class TestRateLimitHandling(unittest.TestCase):

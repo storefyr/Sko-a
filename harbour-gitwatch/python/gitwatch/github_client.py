@@ -14,9 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import fcntl
 import json
 import os
 import re
+import time
 import urllib.request
 import urllib.error
 import xml.etree.ElementTree as ET
@@ -34,7 +36,9 @@ def _get_data_dir():
 
 DATA_DIR = _get_data_dir()
 STATE_FILE = os.path.join(DATA_DIR, "state.json")
-MAX_EVENTS_STORED = 100
+LOCK_FILE = os.path.join(DATA_DIR, "state.lock")
+MAX_EVENTS_STORED = 500
+MAX_NOTIFIED_STORED = 500
 ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
 
 
@@ -42,17 +46,44 @@ def ensure_data_dir():
     os.makedirs(DATA_DIR, exist_ok=True)
 
 
+def acquire_lock(timeout=10):
+    ensure_data_dir()
+    lock_fd = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o644)
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return lock_fd
+        except IOError:
+            time.sleep(0.1)
+    os.close(lock_fd)
+    return None
+
+
+def release_lock(lock_fd):
+    if lock_fd is not None:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            os.close(lock_fd)
+        except Exception:
+            pass
+
+
 def load_state():
     ensure_data_dir()
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE, "r") as f:
-                return json.load(f)
+                state = json.load(f)
+            if "notified_events" not in state:
+                state["notified_events"] = []
+            return state
         except (json.JSONDecodeError, IOError):
             pass
     return {
         "last_check": None,
         "seen_events": [],
+        "notified_events": [],
         "watched_users": ["storefyr"],
         "notifications_enabled": True,
         "notification_sound": True,
@@ -63,6 +94,7 @@ def load_state():
 def save_state(state):
     ensure_data_dir()
     state["seen_events"] = state["seen_events"][-MAX_EVENTS_STORED:]
+    state["notified_events"] = state["notified_events"][-MAX_EVENTS_STORED:]
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
 
@@ -539,12 +571,30 @@ def get_new_events(state):
 
 
 def check_for_updates():
-    state = load_state()
-    new_events, seen_ids = get_new_events(state)
-    state["seen_events"] = seen_ids
-    state["last_check"] = datetime.now(timezone.utc).isoformat()
-    save_state(state)
-    return new_events
+    lock_fd = acquire_lock(timeout=10)
+    if lock_fd is None:
+        print("Could not acquire lock, another instance may be running")
+        return []
+
+    try:
+        state = load_state()
+        new_events, seen_ids = get_new_events(state)
+        notified_ids = set(state.get("notified_events", []))
+
+        truly_new = []
+        for event in new_events:
+            eid = event.get("id", "")
+            if eid and eid not in notified_ids:
+                truly_new.append(event)
+                notified_ids.add(eid)
+
+        state["seen_events"] = seen_ids
+        state["notified_events"] = list(notified_ids)[-MAX_NOTIFIED_STORED:]
+        state["last_check"] = datetime.now(timezone.utc).isoformat()
+        save_state(state)
+        return truly_new
+    finally:
+        release_lock(lock_fd)
 
 
 def get_watched_users():
@@ -672,5 +722,6 @@ def run_background_check():
 def reset_seen_events():
     state = load_state()
     state["seen_events"] = []
+    state["notified_events"] = []
     save_state(state)
     return True
