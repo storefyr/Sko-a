@@ -19,7 +19,7 @@
 
 Name:           harbour-gitwatch
 Summary:        GitHub Activity Notifier
-Version:        0.3.1
+Version:        0.3.2
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -84,8 +84,8 @@ Description=GitWatch Periodic Check
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=30min
-AccuracySec=1min
+OnUnitActiveSec=1min
+AccuracySec=10s
 Persistent=true
 
 [Install]

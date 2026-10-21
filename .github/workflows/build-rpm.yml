@@ -16,7 +16,7 @@ on:
 env:
   SFOS_VERSION: '5.0.0.43'
   APP_NAME: 'harbour-gitwatch'
-  APP_VERSION: '0.3.1'
+  APP_VERSION: '0.3.2'
 
 jobs:
   build-rpm-aarch64:

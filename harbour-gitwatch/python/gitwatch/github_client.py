@@ -384,7 +384,7 @@ def fetch_releases_api(owner, repo, per_page=10):
     return events
 
 
-def fetch_tags_atom(owner, repo, per_page=10, min_age_minutes=5):
+def fetch_tags_atom(owner, repo, per_page=10, min_age_minutes=1):
     url = f"{GITHUB_ATOM_BASE}/{owner}/{repo}/tags.atom"
     try:
         xml_text = fetch_atom_feed(url)
@@ -449,7 +449,7 @@ def fetch_user_tags(username, per_page=20):
                 print(f"Error fetching releases API for {username}/{repo}: {e}")
 
         try:
-            tags = fetch_tags_atom(username, repo, per_page=5, min_age_minutes=5)
+            tags = fetch_tags_atom(username, repo, per_page=5, min_age_minutes=1)
             all_tags.extend(tags)
         except Exception as e:
             print(f"Error fetching tags for {username}/{repo}: {e}")
