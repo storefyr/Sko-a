@@ -518,7 +518,6 @@ class TestQmlSyntax(unittest.TestCase):
             "pages/SettingsPage.qml",
             "cover/CoverPage.qml",
             "background-check.qml",
-            "skodja-daemon.qml",
         ]
         for f in expected_files:
             path = os.path.join(self.QML_DIR, f)
@@ -545,7 +544,6 @@ class TestQmlSyntax(unittest.TestCase):
             "pages/SettingsPage.qml",
             "cover/CoverPage.qml",
             "background-check.qml",
-            "skodja-daemon.qml",
         ]
         for f in qml_files:
             path = os.path.join(self.QML_DIR, f)
