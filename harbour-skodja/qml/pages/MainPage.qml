@@ -54,8 +54,17 @@ Page {
     SilicaListView {
         id: listView
         anchors.fill: parent
-        header: PageHeader {
-            title: "Skoða"
+        header: Column {
+            width: parent.width
+            PageHeader {
+                title: "Skoða"
+            }
+            Label {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "v0.6.1"
+                color: Theme.secondaryColor
+                font.pixelSize: Theme.fontSizeExtraSmall
+            }
         }
 
         PullDownMenu {

@@ -18,37 +18,11 @@
 
 import QtQuick 2.0
 import io.thp.pyotherside 1.0
-import Nemo.Notifications 1.0
 
 QtObject {
     id: daemon
 
-    property var notification: null
-    property var releaseNotification: null
     property bool pythonReady: false
-
-    Component.onCompleted: {
-        notification = notificationComponent.createObject(daemon)
-        releaseNotification = releaseNotificationComponent.createObject(daemon)
-    }
-
-    Component {
-        id: notificationComponent
-        Notification {
-            appName: "harbour-skodja"
-            appIcon: "harbour-skodja"
-            category: "x-harbour.harbour-skodja.event"
-        }
-    }
-
-    Component {
-        id: releaseNotificationComponent
-        Notification {
-            appName: "harbour-skodja"
-            appIcon: "harbour-skodja"
-            category: "x-harbour.harbour-skodja.release"
-        }
-    }
 
     Python {
         id: py
@@ -75,59 +49,12 @@ QtObject {
 
     function runCheck() {
         if (!pythonReady) return
-
-        py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
-            if (!enabled) return
-
-            py.call("gitwatch.github_client.check_for_updates", [], function(newEvents) {
-                if (newEvents.length === 0) return
-
-                py.call("gitwatch.github_client.filter_events_for_notification", [newEvents], function(filtered) {
-                    if (filtered.length === 0) return
-
-                    var releaseEvents = []
-                    var otherEvents = []
-                    for (var i = 0; i < filtered.length; i++) {
-                        if (filtered[i].type === "ReleaseEvent") {
-                            releaseEvents.push(filtered[i])
-                        } else {
-                            otherEvents.push(filtered[i])
-                        }
-                    }
-
-                    if (otherEvents.length > 0) {
-                        var firstOther = otherEvents[0]
-                        var otherSummary = "Skoða: " + firstOther.summary
-                        var otherBody = (firstOther.user || "") + ": " + firstOther.body
-                        if (otherEvents.length > 1) {
-                            otherBody += " (+" + (otherEvents.length - 1) + " flere)"
-                        }
-                        publishNotification(notification, otherSummary, otherBody)
-                    }
-
-                    if (releaseEvents.length > 0) {
-                        py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(soundEnabled) {
-                            var firstRelease = releaseEvents[0]
-                            var releaseSummary = "Skoða: " + firstRelease.summary
-                            var releaseBody = (firstRelease.user || "") + ": " + firstRelease.body
-                            if (releaseEvents.length > 1) {
-                                releaseBody += " (+" + (releaseEvents.length - 1) + " flere)"
-                            }
-                            var target = soundEnabled ? releaseNotification : notification
-                            publishNotification(target, releaseSummary, releaseBody)
-                        })
-                    }
-                })
-            })
+        py.call("gitwatch.github_client.check_and_notify", [], function(result) {
+            if (result && result.status === "ok" && result.notified > 0) {
+                console.log("Skoða daemon: Published " + result.notified + " notification(s) via D-Bus")
+            } else if (result && result.status === "error") {
+                console.log("Skoða daemon error: " + result.error)
+            }
         })
-    }
-
-    function publishNotification(notif, summary, body) {
-        if (!notif) return
-        notif.previewSummary = summary
-        notif.previewBody = body
-        notif.summary = summary
-        notif.body = body
-        notif.publish()
     }
 }

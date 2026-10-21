@@ -18,6 +18,7 @@ import fcntl
 import json
 import os
 import re
+import subprocess
 import time
 import urllib.request
 import urllib.error
@@ -745,3 +746,113 @@ def reset_seen_events():
     state["notified_events"] = []
     save_state(state)
     return True
+
+
+def publish_notification(summary, body, is_release=False):
+    """Publish a notification via D-Bus (works without QML window).
+
+    Uses org.freedesktop.Notifications D-Bus interface which is what
+    Sailfish OS Nemo.Notifications ultimately calls. This works even
+    when no QML window is visible.
+    """
+    try:
+        category = "x-harbour.harbour-skodja.release" if is_release else "x-harbour.harbour-skodja.event"
+
+        # Try using dbus-send first (always available on Sailfish OS)
+        cmd = [
+            "dbus-send",
+            "--session",
+            "--print-reply",
+            "--dest=org.freedesktop.Notifications",
+            "/org/freedesktop/Notifications",
+            "org.freedesktop.Notifications.Notify",
+            "string:harbour-skodja",  # app_name
+            "uint32:0",  # replaces_id
+            "string:harbour-skodja",  # app_icon
+            "string:" + summary,  # summary
+            "string:" + body,  # body
+            "array:string:",  # actions
+            "dict:string:variant:",  # hints
+            "int32:5000",  # timeout
+        ]
+
+        # Add category hint so Sailfish OS knows which sound profile to use
+        cmd[-3] = "dict:string:variant:category,s:{" + category + "}"
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            return True
+
+        # Fallback: try gdbus
+        cmd2 = [
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            "org.freedesktop.Notifications",
+            "--object-path",
+            "/org/freedesktop/Notifications",
+            "--method",
+            "org.freedesktop.Notifications.Notify",
+            "harbour-skodja",
+            "0",
+            "harbour-skodja",
+            summary,
+            body,
+            "[]",
+            "{'category': <'" + category + "'>}",
+            "5000",
+        ]
+        result2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=5)
+        return result2.returncode == 0
+
+    except Exception as e:
+        print("Failed to publish D-Bus notification: " + str(e))
+        return False
+
+
+def check_and_notify():
+    """Full background check: fetch updates and publish notifications via D-Bus.
+    This is the main entry point for background notifications that work
+    even when the app UI is not visible.
+    """
+    if not are_notifications_enabled():
+        return {"status": "disabled", "notified": 0}
+
+    try:
+        new_events = check_for_updates()
+        if not new_events:
+            return {"status": "ok", "notified": 0}
+
+        filtered = filter_events_for_notification(new_events)
+        if not filtered:
+            return {"status": "ok", "notified": 0}
+
+        release_events = [e for e in filtered if e.get("type") == "ReleaseEvent"]
+        other_events = [e for e in filtered if e.get("type") != "ReleaseEvent"]
+
+        notified = 0
+
+        if other_events:
+            first = other_events[0]
+            summary = "Skoðja: " + first.get("summary", "Ny aktivitet")
+            body = first.get("user", "") + ": " + first.get("body", "")
+            if len(other_events) > 1:
+                body += " (+" + str(len(other_events) - 1) + " flere)"
+            if publish_notification(summary, body, is_release=False):
+                notified += 1
+
+        if release_events:
+            sound_enabled = is_notification_sound_enabled()
+            first = release_events[0]
+            summary = "Skoðja: " + first.get("summary", "Ny release")
+            body = first.get("user", "") + ": " + first.get("body", "")
+            if len(release_events) > 1:
+                body += " (+" + str(len(release_events) - 1) + " flere)"
+            if publish_notification(summary, body, is_release=sound_enabled):
+                notified += 1
+
+        return {"status": "ok", "notified": notified}
+
+    except Exception as e:
+        return {"status": "error", "error": str(e), "notified": 0}
