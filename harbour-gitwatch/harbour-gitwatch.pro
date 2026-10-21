@@ -34,6 +34,8 @@ OTHER_FILES += \
     harbour-gitwatch.desktop \
     icons/*.png \
     sounds/notification.wav \
+    config/x-harbour.harbour-gitwatch.event.conf \
+    config/x-harbour.harbour-gitwatch.release.conf \
     README.md \
     INSTALL.md \
     QUICKSTART.md \
@@ -49,4 +51,6 @@ DISTFILES += \
     qml/background-check.qml \
     python/gitwatch/__init__.py \
     python/gitwatch/github_client.py \
-    harbour-gitwatch.desktop
+    harbour-gitwatch.desktop \
+    config/x-harbour.harbour-gitwatch.event.conf \
+    config/x-harbour.harbour-gitwatch.release.conf

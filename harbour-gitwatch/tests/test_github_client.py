@@ -582,6 +582,41 @@ class TestPackagingFiles(unittest.TestCase):
             path = os.path.join(icons_dir, f"harbour-gitwatch-{size}.png")
             self.assertTrue(os.path.exists(path), f"Missing icon: {size}x{size}")
 
+    def test_notification_category_configs_exist(self):
+        config_dir = os.path.join(os.path.dirname(__file__), "..", "config")
+        event_conf = os.path.join(config_dir, "x-harbour.harbour-gitwatch.event.conf")
+        release_conf = os.path.join(config_dir, "x-harbour.harbour-gitwatch.release.conf")
+        self.assertTrue(os.path.exists(event_conf), "Missing event category config")
+        self.assertTrue(os.path.exists(release_conf), "Missing release category config")
+
+    def test_release_category_has_feedback(self):
+        release_conf = os.path.join(
+            os.path.dirname(__file__), "..", "config", "x-harbour.harbour-gitwatch.release.conf"
+        )
+        with open(release_conf) as f:
+            content = f.read()
+        self.assertIn("x-nemo-feedback=", content)
+        self.assertIn("sound-name=", content)
+
+    def test_spec_installs_notification_categories(self):
+        spec_path = os.path.join(self.RPM_DIR, "harbour-gitwatch.spec")
+        with open(spec_path) as f:
+            content = f.read()
+        self.assertIn("notificationcategories", content)
+        self.assertIn("x-harbour.harbour-gitwatch.event.conf", content)
+        self.assertIn("x-harbour.harbour-gitwatch.release.conf", content)
+
+    def test_qml_uses_harbour_categories(self):
+        qml_files = [
+            os.path.join(os.path.dirname(__file__), "..", "qml", "pages", "MainPage.qml"),
+            os.path.join(os.path.dirname(__file__), "..", "qml", "background-check.qml"),
+        ]
+        for qml_path in qml_files:
+            with open(qml_path) as f:
+                content = f.read()
+            self.assertIn("x-harbour.harbour-gitwatch.event", content, f"{qml_path} missing event category")
+            self.assertIn("x-harbour.harbour-gitwatch.release", content, f"{qml_path} missing release category")
+
 
 if __name__ == "__main__":
     unittest.main()

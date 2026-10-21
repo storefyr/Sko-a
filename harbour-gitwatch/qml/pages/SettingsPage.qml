@@ -109,7 +109,7 @@ Page {
             TextSwitch {
                 id: soundSwitch
                 text: "Lyd ved nye releases"
-                description: "Afspil alarmlyd kun når der er nye releases"
+                description: "Brug Sailfish OS notifikationslyd ved nye releases"
                 checked: notificationSound
                 onCheckedChanged: {
                     appWindow.py.call("gitwatch.github_client.set_notification_sound", [checked], function() {})
@@ -222,7 +222,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "GitWatch 0.3.3\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nBaggrundstjek hvert minut når skærmen er låst."
+                text: "GitWatch 0.4.0\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nBaggrundstjek hvert minut.\nLyd via Sailfish OS indstillinger."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap

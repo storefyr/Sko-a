@@ -19,7 +19,7 @@
 
 Name:           harbour-gitwatch
 Summary:        GitHub Activity Notifier
-Version:        0.3.3
+Version:        0.4.0
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -29,7 +29,6 @@ Source0:        %{name}-%{version}.tar.bz2
 Requires:       sailfishsilica-qt5 >= 0.10.9
 Requires:       pyotherside-qml-plugin-python3-qt5 >= 1.3.0
 Requires:       python3-base
-Requires:       pulseaudio-utils
 
 BuildRequires:  pkgconfig(sailfishapp)
 BuildRequires:  pkgconfig(Qt5Core)
@@ -39,7 +38,7 @@ BuildRequires:  desktop-file-utils
 
 %description
 Få notifikationer når der er ny aktivitet på GitHub-profiler og repositories.
-Tjekker regelmæssigt for nye commits, pull requests, issues og releases.
+Baggrundstjek hvert minut via systemd timer. Integreret med Sailfish OS lydindstillinger.
 Kører baggrundstjek hver 30. minut via systemd timer.
 
 %prep
@@ -71,6 +70,10 @@ cp -r python %{buildroot}%{_datadir}/%{name}/
 install -d %{buildroot}%{_datadir}/%{name}/sounds
 install -m 644 sounds/notification.wav %{buildroot}%{_datadir}/%{name}/sounds/notification.wav
 
+install -d %{buildroot}%{_datadir}/lipstick/notificationcategories
+install -m 644 config/x-harbour.harbour-gitwatch.event.conf %{buildroot}%{_datadir}/lipstick/notificationcategories/
+install -m 644 config/x-harbour.harbour-gitwatch.release.conf %{buildroot}%{_datadir}/lipstick/notificationcategories/
+
 install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
@@ -100,11 +103,13 @@ TIMER
 systemctl --user daemon-reload || true
 systemctl --user enable harbour-gitwatch.timer || true
 systemctl --user start harbour-gitwatch.timer || true
+systemctl --user restart lipstick || true
 
 %postun
 systemctl --user stop harbour-gitwatch.timer || true
 systemctl --user disable harbour-gitwatch.timer || true
 systemctl --user daemon-reload || true
+systemctl --user restart lipstick || true
 
 %files
 %defattr(-,root,root,-)
@@ -117,3 +122,5 @@ systemctl --user daemon-reload || true
 %{_datadir}/icons/hicolor/256x256/apps/%{name}.png
 %{_userunitdir}/%{name}.service
 %{_userunitdir}/%{name}.timer
+%{_datadir}/lipstick/notificationcategories/x-harbour.harbour-gitwatch.event.conf
+%{_datadir}/lipstick/notificationcategories/x-harbour.harbour-gitwatch.release.conf

@@ -29,15 +29,14 @@ ApplicationWindow {
         id: notification
         appName: "harbour-gitwatch"
         appIcon: "harbour-gitwatch"
-        category: "gitwatch.event"
+        category: "x-harbour.harbour-gitwatch.event"
     }
 
     Notification {
         id: releaseNotification
         appName: "harbour-gitwatch"
         appIcon: "harbour-gitwatch"
-        category: "gitwatch.release"
-        sound: "message-new-instant"
+        category: "x-harbour.harbour-gitwatch.release"
     }
 
     Python {
@@ -78,14 +77,12 @@ ApplicationWindow {
                                 if (releaseEvents.length > 1) {
                                     body += " (+" + (releaseEvents.length - 1) + " flere)"
                                 }
-                                if (soundEnabled) {
-                                    py.call("gitwatch.github_client.play_notification_sound", [], function() {})
-                                }
-                                notification.previewSummary = summary
-                                notification.previewBody = body
-                                notification.summary = summary
-                                notification.body = body
-                                notification.publish()
+                                var targetNotif = soundEnabled ? releaseNotification : notification
+                                targetNotif.previewSummary = summary
+                                targetNotif.previewBody = body
+                                targetNotif.summary = summary
+                                targetNotif.body = body
+                                targetNotif.publish()
                                 Qt.quit()
                             })
                             return

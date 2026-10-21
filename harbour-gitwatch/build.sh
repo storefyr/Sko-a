@@ -18,7 +18,7 @@
 set -e
 
 APP_NAME="harbour-gitwatch"
-VERSION="0.3.3"
+VERSION="0.4.0"
 PACKAGE_NAME="${APP_NAME}-${VERSION}"
 
 cd "$(dirname "$0")"
@@ -32,6 +32,7 @@ cp -r qml "${PACKAGE_NAME}/"
 cp -r python "${PACKAGE_NAME}/"
 cp -r icons "${PACKAGE_NAME}/"
 cp -r sounds "${PACKAGE_NAME}/"
+cp -r config "${PACKAGE_NAME}/"
 cp -r src "${PACKAGE_NAME}/"
 mkdir -p "${PACKAGE_NAME}/rpm"
 cp rpm/harbour-gitwatch.spec "${PACKAGE_NAME}/rpm/"

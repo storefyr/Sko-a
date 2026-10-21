@@ -33,7 +33,7 @@ Page {
         id: notification
         appName: "harbour-gitwatch"
         appIcon: "harbour-gitwatch"
-        category: "gitwatch.event"
+        category: "x-harbour.harbour-gitwatch.event"
         previewSummary: ""
         previewBody: ""
         summary: ""
@@ -44,8 +44,7 @@ Page {
         id: releaseNotification
         appName: "harbour-gitwatch"
         appIcon: "harbour-gitwatch"
-        category: "gitwatch.release"
-        sound: "message-new-instant"
+        category: "x-harbour.harbour-gitwatch.release"
         previewSummary: ""
         previewBody: ""
         summary: ""
@@ -232,10 +231,7 @@ Page {
                             releaseBody += " (+" + (releaseEvents.length - 1) + " flere)"
                         }
                         appWindow.py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(soundEnabled) {
-                            if (soundEnabled) {
-                                appWindow.py.call("gitwatch.github_client.play_notification_sound", [], function() {})
-                            }
-                            showNotification(releaseSummary, releaseBody, false)
+                            showNotification(releaseSummary, releaseBody, soundEnabled)
                         })
                     }
                 }

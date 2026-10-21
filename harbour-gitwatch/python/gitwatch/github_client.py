@@ -87,7 +87,17 @@ def load_state():
         "watched_users": ["storefyr"],
         "notifications_enabled": True,
         "notification_sound": True,
-        "notification_filter": ["PushEvent", "PullRequestEvent", "IssuesEvent", "ReleaseEvent", "CreateEvent", "DeleteEvent", "WatchEvent", "ForkEvent", "CommitCommentEvent"],
+        "notification_filter": [
+            "PushEvent",
+            "PullRequestEvent",
+            "IssuesEvent",
+            "ReleaseEvent",
+            "CreateEvent",
+            "DeleteEvent",
+            "WatchEvent",
+            "ForkEvent",
+            "CommitCommentEvent",
+        ],
     }
 
 
@@ -680,53 +690,19 @@ def set_notification_sound(enabled):
     return enabled
 
 
-def play_notification_sound():
-    try:
-        import subprocess
-
-        sound_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "sounds", "notification.wav")
-        if not os.path.exists(sound_file):
-            xdg_data = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
-            sound_file = os.path.join(xdg_data, "com.storefyr", "harbour-gitwatch", "notification.wav")
-        if not os.path.exists(sound_file):
-            sound_file = "/usr/share/harbour-gitwatch/sounds/notification.wav"
-
-        if not os.path.exists(sound_file):
-            print(f"Sound file not found: {sound_file}")
-            return False
-
-        for player in ["paplay", "/usr/bin/paplay"]:
-            try:
-                subprocess.Popen(
-                    [player, sound_file],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                return True
-            except FileNotFoundError:
-                continue
-
-        for player in ["gst-play-1.0", "/usr/bin/gst-play-1.0"]:
-            try:
-                subprocess.Popen(
-                    [player, sound_file],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                return True
-            except FileNotFoundError:
-                continue
-
-        print("No audio player found (paplay, gst-play-1.0)")
-        return False
-    except Exception as e:
-        print(f"Failed to play sound: {e}")
-        return False
-
-
 def get_notification_filter():
     state = load_state()
-    default = ["PushEvent", "PullRequestEvent", "IssuesEvent", "ReleaseEvent", "CreateEvent", "DeleteEvent", "WatchEvent", "ForkEvent", "CommitCommentEvent"]
+    default = [
+        "PushEvent",
+        "PullRequestEvent",
+        "IssuesEvent",
+        "ReleaseEvent",
+        "CreateEvent",
+        "DeleteEvent",
+        "WatchEvent",
+        "ForkEvent",
+        "CommitCommentEvent",
+    ]
     return state.get("notification_filter", default)
 
 
