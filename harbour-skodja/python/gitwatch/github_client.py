@@ -40,6 +40,22 @@ STATE_FILE = os.path.join(DATA_DIR, "state.json")
 LOCK_FILE = os.path.join(DATA_DIR, "state.lock")
 MAX_EVENTS_STORED = 500
 MAX_NOTIFIED_STORED = 500
+
+STATS_DEFAULT = {
+    "api_calls_total": 0,
+    "api_calls_cached": 0,
+    "api_calls_304": 0,
+    "api_rate_limited": 0,
+    "api_errors": 0,
+    "atom_fallbacks": 0,
+    "notifications_sent": 0,
+    "checks_total": 0,
+    "checks_with_new_events": 0,
+    "last_error": None,
+    "last_error_time": None,
+    "started_at": None,
+}
+
 ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
 
 
@@ -114,7 +130,7 @@ def load_state():
             if "api_cache" not in state:
                 state["api_cache"] = {}
             if "stats" not in state:
-                state["stats"] = {}
+                state["stats"] = dict(STATS_DEFAULT)
             if _migrate_old_release_ids(state):
                 save_state(state)
             return state
@@ -126,7 +142,7 @@ def load_state():
         "notified_events": [],
         "watched_users": ["storefyr"],
         "api_cache": {},
-        "stats": {},
+        "stats": dict(STATS_DEFAULT),
         "notifications_enabled": True,
         "notification_sound": True,
         "notification_filter": [
@@ -147,6 +163,13 @@ def save_state(state):
     ensure_data_dir()
     state["seen_events"] = state["seen_events"][-MAX_EVENTS_STORED:]
     state["notified_events"] = state["notified_events"][-MAX_EVENTS_STORED:]
+    # Ensure stats dict exists and has all default keys
+    if "stats" not in state:
+        state["stats"] = dict(STATS_DEFAULT)
+    else:
+        for key, value in STATS_DEFAULT.items():
+            if key not in state["stats"]:
+                state["stats"][key] = value
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
 
@@ -1061,26 +1084,17 @@ def _cleanup_daemon_pid():
 
 # --- Statistics ---
 
-STATS_DEFAULT = {
-    "api_calls_total": 0,
-    "api_calls_cached": 0,
-    "api_calls_304": 0,
-    "api_rate_limited": 0,
-    "api_errors": 0,
-    "atom_fallbacks": 0,
-    "notifications_sent": 0,
-    "checks_total": 0,
-    "checks_with_new_events": 0,
-    "last_error": None,
-    "last_error_time": None,
-    "started_at": None,
-}
-
 
 def _get_stats(state):
-    """Get stats from state, initializing if needed."""
+    """Get stats from state, initializing missing keys from defaults."""
     if "stats" not in state:
         state["stats"] = dict(STATS_DEFAULT)
+    else:
+        # Merge with defaults to ensure all keys exist
+        for key, value in STATS_DEFAULT.items():
+            if key not in state["stats"]:
+                state["stats"][key] = value
+    if state["stats"].get("started_at") is None:
         state["stats"]["started_at"] = datetime.now(timezone.utc).isoformat()
     return state["stats"]
 
