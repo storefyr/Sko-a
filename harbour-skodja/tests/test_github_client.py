@@ -669,6 +669,67 @@ class TestServiceControl(unittest.TestCase):
         self.assertIn("Restart=on-failure", content)
 
 
+class TestPidFileStatus(unittest.TestCase):
+    """Tests for PID-file based daemon status detection (v0.7.3)."""
+
+    def test_pid_file_constant_exists(self):
+        from gitwatch.github_client import PID_FILE
+
+        self.assertTrue(PID_FILE.endswith("daemon.pid"))
+
+    def test_pid_is_alive_invalid(self):
+        from gitwatch.github_client import _pid_is_alive
+
+        self.assertFalse(_pid_is_alive(None))
+        self.assertFalse(_pid_is_alive(0))
+        self.assertFalse(_pid_is_alive(-1))
+        # PID 99999999 is very unlikely to exist
+        self.assertFalse(_pid_is_alive(99999999))
+
+    def test_pid_is_alive_self(self):
+        import os
+        from gitwatch.github_client import _pid_is_alive
+
+        self.assertTrue(_pid_is_alive(os.getpid()))
+
+    def test_write_and_read_pid_file(self):
+        import os
+        import gitwatch.github_client as gc
+
+        gc.ensure_data_dir()
+        gc._write_daemon_pid()
+        try:
+            self.assertTrue(os.path.exists(gc.PID_FILE))
+            pid = gc._get_daemon_pid()
+            self.assertEqual(pid, os.getpid())
+        finally:
+            gc._cleanup_daemon_pid()
+        self.assertFalse(os.path.exists(gc.PID_FILE))
+
+    def test_get_daemon_pid_no_file(self):
+        import gitwatch.github_client as gc
+
+        # Ensure no PID file exists
+        if os.path.exists(gc.PID_FILE):
+            os.remove(gc.PID_FILE)
+        self.assertIsNone(gc._get_daemon_pid())
+
+    def test_get_daemon_pid_stale_file(self):
+        import gitwatch.github_client as gc
+
+        gc.ensure_data_dir()
+        # Write a stale PID (99999999 is very unlikely to exist)
+        with open(gc.PID_FILE, "w") as f:
+            f.write("99999999")
+        try:
+            self.assertIsNone(gc._get_daemon_pid())
+            # Stale file should be cleaned up
+            self.assertFalse(os.path.exists(gc.PID_FILE))
+        finally:
+            if os.path.exists(gc.PID_FILE):
+                os.remove(gc.PID_FILE)
+
+
 class TestRateLimitHandling(unittest.TestCase):
     """Test rate limit fallback to Atom feed."""
 

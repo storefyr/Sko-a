@@ -16,7 +16,7 @@ on:
 env:
   SFOS_VERSION: '5.0.0.43'
   APP_NAME: 'harbour-skodja'
-  APP_VERSION: '0.7.2'
+  APP_VERSION: '0.7.3'
 
 jobs:
   build-rpm-aarch64:

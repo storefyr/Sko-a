@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_ATOM_BASE = "https://github.com"
-USER_AGENT = "harbour-skodja/0.1 (Sailfish OS)"
+USER_AGENT = "harbour-skodja/0.7.3 (Sailfish OS)"
 
 
 def _get_data_dir():
@@ -896,6 +896,7 @@ def check_and_notify():
 
 
 SERVICE_NAME = "harbour-skodja.service"
+PID_FILE = os.path.join(DATA_DIR, "daemon.pid")
 SYSTEMD_USER_SERVICE = "org.freedesktop.systemd1"
 SYSTEMD_USER_PATH = "/org/freedesktop/systemd1"
 SYSTEMD_UNIT_PATH = "/org/freedesktop/systemd1/unit/harbour_2dskodja_2eservice"
@@ -932,18 +933,56 @@ def _systemctl_user(*args):
         return False, str(e)
 
 
-def _get_daemon_pid():
-    """Get PID of running daemon process, or None if not running."""
+def _pid_is_alive(pid):
+    """Check if a process with given PID is alive by checking /proc."""
+    if pid is None or pid <= 0:
+        return False
     try:
-        result = subprocess.run(
-            ["pgrep", "-f", "harbour-skodja.*github_client.py"], capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            pids = [int(p) for p in result.stdout.strip().split()]
-            return pids[0] if pids else None
+        os.kill(pid, 0)  # Signal 0 just checks if process exists
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+    except Exception:
+        # Fallback: check /proc directly
+        return os.path.exists("/proc/%d" % pid)
+
+
+def _get_daemon_pid():
+    """Get PID of running daemon from PID file, verify it's alive."""
+    try:
+        if os.path.exists(PID_FILE):
+            with open(PID_FILE, "r") as f:
+                pid = int(f.read().strip())
+            if _pid_is_alive(pid):
+                return pid
+            else:
+                # Stale PID file, clean up
+                try:
+                    os.remove(PID_FILE)
+                except OSError:
+                    pass
     except Exception:
         pass
     return None
+
+
+def _write_daemon_pid():
+    """Write current process PID to PID file."""
+    ensure_data_dir()
+    try:
+        with open(PID_FILE, "w") as f:
+            f.write(str(os.getpid()))
+    except Exception as e:
+        print("Could not write PID file: " + str(e))
+
+
+def _cleanup_daemon_pid():
+    """Remove PID file on exit."""
+    try:
+        if os.path.exists(PID_FILE):
+            os.remove(PID_FILE)
+    except Exception:
+        pass
 
 
 def get_service_status():
@@ -1032,18 +1071,23 @@ def run_daemon(interval_seconds=60):
     """Run as a persistent background daemon.
     Checks for new events and publishes notifications at regular intervals.
     This runs entirely in Python without any QML dependency.
+    Writes PID file so the app can check if daemon is running.
     """
-    print("Skoða daemon started (interval: {}s)".format(interval_seconds))
-    while True:
-        try:
-            result = check_and_notify()
-            if result.get("status") == "ok" and result.get("notified", 0) > 0:
-                print("Skoða daemon: Published {} notification(s)".format(result["notified"]))
-            elif result.get("status") == "error":
-                print("Skoða daemon error: " + str(result.get("error", "unknown")))
-        except Exception as e:
-            print("Skoða daemon exception: " + str(e))
-        time.sleep(interval_seconds)
+    _write_daemon_pid()
+    print("Skoða daemon started (PID %d, interval: %ds)" % (os.getpid(), interval_seconds))
+    try:
+        while True:
+            try:
+                result = check_and_notify()
+                if result.get("status") == "ok" and result.get("notified", 0) > 0:
+                    print("Skoða daemon: Published {} notification(s)".format(result["notified"]))
+                elif result.get("status") == "error":
+                    print("Skoða daemon error: " + str(result.get("error", "unknown")))
+            except Exception as e:
+                print("Skoða daemon exception: " + str(e))
+            time.sleep(interval_seconds)
+    finally:
+        _cleanup_daemon_pid()
 
 
 if __name__ == "__main__":
