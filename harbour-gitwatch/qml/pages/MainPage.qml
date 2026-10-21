@@ -29,8 +29,6 @@ Page {
     property var watchedUsers: []
     property bool loading: false
 
-    property bool notificationSound: true
-
     Notification {
         id: notification
         appName: "harbour-gitwatch"
@@ -40,7 +38,18 @@ Page {
         previewBody: ""
         summary: ""
         body: ""
-        sound: mainPage.notificationSound ? "default" : ""
+    }
+
+    Notification {
+        id: releaseNotification
+        appName: "harbour-gitwatch"
+        appIcon: "harbour-gitwatch"
+        category: "gitwatch.release"
+        sound: "default"
+        previewSummary: ""
+        previewBody: ""
+        summary: ""
+        body: ""
     }
 
     SilicaListView {
@@ -195,34 +204,61 @@ Page {
         appWindow.py.call("gitwatch.github_client.check_for_updates", [], function(newEvents) {
             appWindow.py.call("gitwatch.github_client.filter_events_for_notification", [newEvents], function(filtered) {
                 if (filtered.length > 0) {
-                    var firstEvent = filtered[0]
-                    var summaryText = "GitWatch: " + firstEvent.summary
-                    var bodyText = (firstEvent.user || "") + ": " + firstEvent.body
-                    if (filtered.length > 1) {
-                        bodyText += " (+" + (filtered.length - 1) + " flere)"
+                    var releaseEvents = []
+                    var otherEvents = []
+                    for (var i = 0; i < filtered.length; i++) {
+                        if (filtered[i].type === "ReleaseEvent") {
+                            releaseEvents.push(filtered[i])
+                        } else {
+                            otherEvents.push(filtered[i])
+                        }
                     }
-                    showNotification(summaryText, bodyText)
+
+                    if (otherEvents.length > 0) {
+                        var firstOther = otherEvents[0]
+                        var otherSummary = "GitWatch: " + firstOther.summary
+                        var otherBody = (firstOther.user || "") + ": " + firstOther.body
+                        if (otherEvents.length > 1) {
+                            otherBody += " (+" + (otherEvents.length - 1) + " flere)"
+                        }
+                        showNotification(otherSummary, otherBody, false)
+                    }
+
+                    if (releaseEvents.length > 0) {
+                        var firstRelease = releaseEvents[0]
+                        var releaseSummary = "GitWatch: " + firstRelease.summary
+                        var releaseBody = (firstRelease.user || "") + ": " + firstRelease.body
+                        if (releaseEvents.length > 1) {
+                            releaseBody += " (+" + (releaseEvents.length - 1) + " flere)"
+                        }
+                        appWindow.py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(soundEnabled) {
+                            showNotification(releaseSummary, releaseBody, soundEnabled)
+                        })
+                    }
                 }
             })
         })
     }
 
-    function showNotification(summaryText, bodyText) {
+    function showNotification(summaryText, bodyText, withSound) {
         appWindow.py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
-            notificationsEnabled = enabled
             if (!enabled) {
                 console.log("Notifications disabled in settings, skipping")
                 return
             }
-            appWindow.py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(soundEnabled) {
-                notificationSound = soundEnabled
-                notification.sound = soundEnabled ? "default" : ""
+            if (withSound) {
+                releaseNotification.previewSummary = summaryText
+                releaseNotification.previewBody = bodyText
+                releaseNotification.summary = summaryText
+                releaseNotification.body = bodyText
+                releaseNotification.publish()
+            } else {
                 notification.previewSummary = summaryText
                 notification.previewBody = bodyText
                 notification.summary = summaryText
                 notification.body = bodyText
                 notification.publish()
-            })
+            }
         })
     }
 

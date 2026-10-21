@@ -18,7 +18,7 @@
 set -e
 
 APP_NAME="harbour-gitwatch"
-VERSION="0.2.9"
+VERSION="0.3.0"
 PACKAGE_NAME="${APP_NAME}-${VERSION}"
 
 cd "$(dirname "$0")"

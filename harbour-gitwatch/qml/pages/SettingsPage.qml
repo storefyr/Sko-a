@@ -108,8 +108,8 @@ Page {
 
             TextSwitch {
                 id: soundSwitch
-                text: "Afspil lyd"
-                description: "Afspil alarmlyd ved notifikationer"
+                text: "Lyd ved nye releases"
+                description: "Afspil alarmlyd kun når der er nye releases"
                 checked: notificationSound
                 onCheckedChanged: {
                     appWindow.py.call("gitwatch.github_client.set_notification_sound", [checked], function() {})
@@ -222,7 +222,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "GitWatch 0.2.9\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
+                text: "GitWatch 0.3.0\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer automatisk hvert 6. sekund."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
