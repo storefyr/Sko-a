@@ -4,12 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'harbour-gitwatch/**'
+      - 'harbour-skodja/**'
       - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:
-      - 'harbour-gitwatch/**'
+      - 'harbour-skodja/**'
       - '.github/workflows/**'
   workflow_dispatch:
 
@@ -32,15 +32,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-          cache-dependency-path: 'harbour-gitwatch/requirements-dev.txt'
+          cache-dependency-path: 'harbour-skodja/requirements-dev.txt'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r harbour-gitwatch/requirements-dev.txt
+          pip install -r harbour-skodja/requirements-dev.txt
 
       - name: Run tests
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           python -m pytest tests/ -v --tb=short --junitxml=test-results.xml
 
@@ -49,17 +49,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.python-version }}
-          path: harbour-gitwatch/test-results.xml
+          path: harbour-skodja/test-results.xml
 
       - name: Generate coverage report
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           python -m pytest tests/ --cov=python/gitwatch --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          file: harbour-gitwatch/coverage.xml
+          file: harbour-skodja/coverage.xml
           flags: python-${{ matrix.python-version }}
           fail_ci_if_error: false
 
@@ -75,25 +75,25 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-          cache-dependency-path: 'harbour-gitwatch/requirements-dev.txt'
+          cache-dependency-path: 'harbour-skodja/requirements-dev.txt'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r harbour-gitwatch/requirements-dev.txt
+          pip install -r harbour-skodja/requirements-dev.txt
 
       - name: Run flake8
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           flake8 python/ --max-line-length=120 --extend-ignore=E501,W503,E203
 
       - name: Check black formatting
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           black --check --diff python/ tests/
 
       - name: Run mypy type check
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           mypy python/ --ignore-missing-imports --no-strict-optional
 
@@ -110,10 +110,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Validate RPM spec syntax
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           python3 -c "
-          with open('rpm/harbour-gitwatch.spec') as f:
+          with open('rpm/harbour-skodja.spec') as f:
               content = f.read()
           required = ['Name:', 'Version:', 'Release:', 'Summary:', 'License:', '%description', '%install', '%files']
           for field in required:
@@ -122,17 +122,17 @@ jobs:
           "
 
       - name: Check build script
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           bash -n build.sh && echo "build.sh syntax OK"
           test -x build.sh || chmod +x build.sh
           test -x build.sh && echo "build.sh is executable"
 
       - name: Validate icons
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           for size in 86 108 128 256; do
-            icon="icons/harbour-gitwatch-${size}.png"
+            icon="icons/harbour-skodja-${size}.png"
             if [ ! -f "$icon" ]; then
               echo "Missing icon: $icon"
               exit 1
@@ -142,13 +142,13 @@ jobs:
           done
 
       - name: Validate desktop file
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
-          test -f harbour-gitwatch.desktop || { echo "Missing harbour-gitwatch.desktop"; exit 1; }
-          grep -q "^\[Desktop Entry\]" harbour-gitwatch.desktop
-          grep -q "^Name=" harbour-gitwatch.desktop
-          grep -q "^Exec=" harbour-gitwatch.desktop
-          grep -q "^Icon=" harbour-gitwatch.desktop
+          test -f harbour-skodja.desktop || { echo "Missing harbour-skodja.desktop"; exit 1; }
+          grep -q "^\[Desktop Entry\]" harbour-skodja.desktop
+          grep -q "^Name=" harbour-skodja.desktop
+          grep -q "^Exec=" harbour-skodja.desktop
+          grep -q "^Icon=" harbour-skodja.desktop
           echo "Desktop file OK"
 
   validate-qml:
@@ -167,12 +167,12 @@ jobs:
         run: pip install pytest
 
       - name: Run QML validation tests
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           python -m pytest tests/test_github_client.py::TestQmlSyntax -v
 
       - name: Check QML files for common issues
-        working-directory: harbour-gitwatch/qml
+        working-directory: harbour-skodja/qml
         run: |
           echo "Checking QML files..."
           for f in $(find . -name "*.qml"); do
@@ -206,7 +206,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y bzip2
 
       - name: Create source tarball
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           chmod +x build.sh
           ./build.sh
@@ -215,23 +215,23 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: source-tarball
-          path: harbour-gitwatch/harbour-gitwatch-*.tar.bz2
+          path: harbour-skodja/harbour-skodja-*.tar.bz2
 
       - name: Verify tarball contents
         run: |
-          cd harbour-gitwatch
+          cd harbour-skodja
           echo "--- Tarball contents ---"
-          tar -tjf harbour-gitwatch-*.tar.bz2 | head -30
+          tar -tjf harbour-skodja-*.tar.bz2 | head -30
           echo "---"
-          echo "Tarball contains $(tar -tjf harbour-gitwatch-*.tar.bz2 | wc -l) files"
+          echo "Tarball contains $(tar -tjf harbour-skodja-*.tar.bz2 | wc -l) files"
           echo ""
           echo "--- Key files check ---"
-          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "rpm/harbour-gitwatch.spec" && echo "✓ spec file present"
-          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "harbour-gitwatch.pro" && echo "✓ pro file present"
-          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "harbour-gitwatch.desktop" && echo "✓ desktop file present"
-          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "qml/harbour-gitwatch.qml" && echo "✓ QML main file present"
-          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "python/gitwatch/__init__.py" && echo "✓ Python module present"
-          tar -tjf harbour-gitwatch-*.tar.bz2 | grep -q "icons/harbour-gitwatch-86.png" && echo "✓ icons present"
+          tar -tjf harbour-skodja-*.tar.bz2 | grep -q "rpm/harbour-skodja.spec" && echo "✓ spec file present"
+          tar -tjf harbour-skodja-*.tar.bz2 | grep -q "harbour-skodja.pro" && echo "✓ pro file present"
+          tar -tjf harbour-skodja-*.tar.bz2 | grep -q "harbour-skodja.desktop" && echo "✓ desktop file present"
+          tar -tjf harbour-skodja-*.tar.bz2 | grep -q "qml/harbour-skodja.qml" && echo "✓ QML main file present"
+          tar -tjf harbour-skodja-*.tar.bz2 | grep -q "python/gitwatch/__init__.py" && echo "✓ Python module present"
+          tar -tjf harbour-skodja-*.tar.bz2 | grep -q "icons/harbour-skodja-86.png" && echo "✓ icons present"
 
   summary:
     name: CI Summary

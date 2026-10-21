@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: "pip"
-    directory: "/harbour-gitwatch"
+    directory: "/harbour-skodja"
     schedule:
       frequency: "weekly"
     open-pull-requests-limit: 5

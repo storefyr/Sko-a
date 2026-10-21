@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Icon=harbour-skodja
+Exec=harbour-skodja
+Name=Skoðja
+Name[da]=Skoðja
+
+[X-Sailjail]
+Permissions=Internet;Notifications
+OrganizationName=com.storefyr
+ApplicationName=harbour-skodja

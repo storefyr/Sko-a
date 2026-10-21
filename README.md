@@ -4,7 +4,7 @@ Samling af projekter til Jolla Phone 2026 (Sailfish OS).
 
 ## Projekter
 
-### harbour-gitwatch
+### harbour-skodja
 
 [![CI](https://github.com/storefyr/Sko-a/actions/workflows/ci.yml/badge.svg)](https://github.com/storefyr/Sko-a/actions/workflows/ci.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
@@ -14,8 +14,8 @@ GitHub Activity Notifier for Sailfish OS. Få notifikationer når der er ny akti
 - Overvåger GitHub-brugere for pushes, pull requests, issues og releases
 - Baggrundstjek hver 30. minut via systemd timer
 - Dansk sprog UI
-- Se [harbour-gitwatch/README.md](harbour-gitwatch/README.md) for detaljer
-- Se [harbour-gitwatch/INSTALL.md](harbour-gitwatch/INSTALL.md) for installation
+- Se [harbour-skodja/README.md](harbour-skodja/README.md) for detaljer
+- Se [harbour-skodja/INSTALL.md](harbour-skodja/INSTALL.md) for installation
 
 ## CI/CD
 

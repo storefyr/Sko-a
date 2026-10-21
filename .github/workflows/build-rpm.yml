@@ -4,19 +4,19 @@ on:
   push:
     branches: [main]
     paths:
-      - 'harbour-gitwatch/**'
+      - 'harbour-skodja/**'
       - '.github/workflows/build-rpm.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'harbour-gitwatch/**'
+      - 'harbour-skodja/**'
       - '.github/workflows/build-rpm.yml'
   workflow_dispatch:
 
 env:
   SFOS_VERSION: '5.0.0.43'
-  APP_NAME: 'harbour-gitwatch'
-  APP_VERSION: '0.5.2'
+  APP_NAME: 'harbour-skodja'
+  APP_VERSION: '0.6.0'
 
 jobs:
   build-rpm-aarch64:
@@ -31,14 +31,14 @@ jobs:
 
       - name: Build source tarball
         run: |
-          cd harbour-gitwatch
+          cd harbour-skodja
           chmod +x build.sh
           ./build.sh
           ls -la *.tar.bz2
 
       - name: Build RPM with Sailfish SDK
         run: |
-          cd harbour-gitwatch
+          cd harbour-skodja
           sudo chmod -R a+w .
           docker run --rm --privileged \
             -v "$(pwd):/home/mersdk/project" \
@@ -54,8 +54,8 @@ jobs:
       - name: Upload RPM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: harbour-gitwatch-${{ env.APP_VERSION }}-aarch64
-          path: harbour-gitwatch/RPMS/*.rpm
+          name: harbour-skodja-${{ env.APP_VERSION }}-aarch64
+          path: harbour-skodja/RPMS/*.rpm
           retention-days: 30
 
   build-rpm-armv7hl:
@@ -70,14 +70,14 @@ jobs:
 
       - name: Build source tarball
         run: |
-          cd harbour-gitwatch
+          cd harbour-skodja
           chmod +x build.sh
           ./build.sh
           ls -la *.tar.bz2
 
       - name: Build RPM with Sailfish SDK
         run: |
-          cd harbour-gitwatch
+          cd harbour-skodja
           sudo chmod -R a+w .
           docker run --rm --privileged \
             -v "$(pwd):/home/mersdk/project" \
@@ -93,8 +93,8 @@ jobs:
       - name: Upload RPM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: harbour-gitwatch-${{ env.APP_VERSION }}-armv7hl
-          path: harbour-gitwatch/RPMS/*.rpm
+          name: harbour-skodja-${{ env.APP_VERSION }}-armv7hl
+          path: harbour-skodja/RPMS/*.rpm
           retention-days: 30
 
   build-rpm-i486:
@@ -109,14 +109,14 @@ jobs:
 
       - name: Build source tarball
         run: |
-          cd harbour-gitwatch
+          cd harbour-skodja
           chmod +x build.sh
           ./build.sh
           ls -la *.tar.bz2
 
       - name: Build RPM with Sailfish SDK
         run: |
-          cd harbour-gitwatch
+          cd harbour-skodja
           sudo chmod -R a+w .
           docker run --rm --privileged \
             -v "$(pwd):/home/mersdk/project" \
@@ -132,8 +132,8 @@ jobs:
       - name: Upload RPM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: harbour-gitwatch-${{ env.APP_VERSION }}-i486
-          path: harbour-gitwatch/RPMS/*.rpm
+          name: harbour-skodja-${{ env.APP_VERSION }}-i486
+          path: harbour-skodja/RPMS/*.rpm
           retention-days: 30
 
   summary:

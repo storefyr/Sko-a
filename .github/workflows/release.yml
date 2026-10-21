@@ -12,7 +12,7 @@ on:
         default: '0.1.0'
 
 env:
-  APP_NAME: harbour-gitwatch
+  APP_NAME: harbour-skodja
   SFOS_VERSION: '5.0.0.43'
 
 jobs:
@@ -40,15 +40,15 @@ jobs:
           echo "Release version: ${VERSION}"
 
       - name: Update version in files
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           VERSION="${{ steps.get-version.outputs.version }}"
-          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
+          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-skodja.spec
           sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
           echo "Updated version to ${VERSION}"
 
       - name: Run tests before release
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           pip install pytest pytest-mock
           python -m pytest tests/ -v --tb=short
@@ -68,21 +68,21 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y bzip2
 
       - name: Update version
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
-          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-gitwatch.spec
+          sed -i "s/^Version: .*/Version: ${VERSION}/" rpm/harbour-skodja.spec
           sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
 
       - name: Build source tarball
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           chmod +x build.sh
           ./build.sh
           ls -la *.tar.bz2
 
       - name: Build RPM with Sailfish SDK
-        working-directory: harbour-gitwatch
+        working-directory: harbour-skodja
         run: |
           sudo chmod -R a+w .
           docker run --rm --privileged \
@@ -99,22 +99,22 @@ jobs:
       - name: Fix permissions and rename RPM
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
-          sudo chmod -R a+w harbour-gitwatch/RPMS || true
-          mkdir -p harbour-gitwatch/dist
-          for rpm in harbour-gitwatch/RPMS/*.rpm; do
+          sudo chmod -R a+w harbour-skodja/RPMS || true
+          mkdir -p harbour-skodja/dist
+          for rpm in harbour-skodja/RPMS/*.rpm; do
             if [ -f "$rpm" ]; then
-              newname="harbour-gitwatch/dist/harbour-gitwatch-${VERSION}-${{ matrix.arch }}.rpm"
+              newname="harbour-skodja/dist/harbour-skodja-${VERSION}-${{ matrix.arch }}.rpm"
               cp "$rpm" "$newname"
               echo "Copied: $rpm -> $newname"
             fi
           done
-          ls -lh harbour-gitwatch/dist/
+          ls -lh harbour-skodja/dist/
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
           name: rpm-${{ matrix.arch }}
-          path: harbour-gitwatch/dist/*.rpm
+          path: harbour-skodja/dist/*.rpm
           retention-days: 90
 
   create-github-release:
@@ -140,12 +140,12 @@ jobs:
       - name: Create source tarball
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
-          cd harbour-gitwatch
+          cd harbour-skodja
           sed -i "s/^VERSION=\".*\"/VERSION=\"${VERSION}\"/" build.sh
           chmod +x build.sh
           ./build.sh
           mkdir -p ../dist
-          cp harbour-gitwatch-*.tar.bz2 ../dist/
+          cp harbour-skodja-*.tar.bz2 ../dist/
           cd ..
 
       - name: Generate release notes
@@ -169,7 +169,7 @@ jobs:
           ### Installation
           Download the RPM for your device architecture and install:
           \`\`\`bash
-          pkcon install-local harbour-gitwatch-${VERSION}-aarch64.rpm
+          pkcon install-local harbour-skodja-${VERSION}-aarch64.rpm
           \`\`\`
 
           ### Supported Architectures
@@ -183,10 +183,10 @@ jobs:
           - python3-base
 
           ### Files
-          - \`harbour-gitwatch-${VERSION}-aarch64.rpm\` - For Jolla Phone 2026 (ARM64)
-          - \`harbour-gitwatch-${VERSION}-armv7hl.rpm\` - For 32-bit ARM devices
-          - \`harbour-gitwatch-${VERSION}-i486.rpm\` - For emulator (x86)
-          - \`harbour-gitwatch-${VERSION}.tar.bz2\` - Source tarball
+          - \`harbour-skodja-${VERSION}-aarch64.rpm\` - For Jolla Phone 2026 (ARM64)
+          - \`harbour-skodja-${VERSION}-armv7hl.rpm\` - For 32-bit ARM devices
+          - \`harbour-skodja-${VERSION}-i486.rpm\` - For emulator (x86)
+          - \`harbour-skodja-${VERSION}.tar.bz2\` - Source tarball
 
           ### License
           GPL-3.0 - see [LICENSE](https://github.com/storefyr/Sko-a/blob/main/LICENSE)
@@ -205,7 +205,7 @@ jobs:
           name: Skoða v${{ needs.prepare-release.outputs.version }}
           body_path: ${{ steps.notes.outputs.notes-file }}
           files: |
-            dist/harbour-gitwatch-*.rpm
-            dist/harbour-gitwatch-*.tar.bz2
+            dist/harbour-skodja-*.rpm
+            dist/harbour-skodja-*.tar.bz2
           draft: false
           prerelease: false
