@@ -19,7 +19,7 @@
 
 Name:           harbour-gitwatch
 Summary:        Skoða - GitHub Activity Notifier
-Version:        0.5.1
+Version:        0.5.2
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
