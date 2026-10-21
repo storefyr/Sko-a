@@ -896,6 +896,30 @@ def check_and_notify():
 
 
 SERVICE_NAME = "harbour-skodja.service"
+SYSTEMD_USER_SERVICE = "org.freedesktop.systemd1"
+SYSTEMD_USER_PATH = "/org/freedesktop/systemd1"
+SYSTEMD_UNIT_PATH = "/org/freedesktop/systemd1/unit/harbour_2dskodja_2eservice"
+
+
+def _dbus_systemd_call(method, interface, *args):
+    """Make a D-Bus call to systemd user instance.
+    Uses dbus-send which is always available.
+    Returns (success, result_string).
+    """
+    cmd = [
+        "dbus-send",
+        "--session",
+        "--print-reply",
+        "--dest=" + SYSTEMD_USER_SERVICE,
+        SYSTEMD_UNIT_PATH if interface == "org.freedesktop.systemd1.Unit" else SYSTEMD_USER_PATH,
+        interface + "." + method,
+    ]
+    cmd.extend(str(a) for a in args)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        return result.returncode == 0, result.stdout.strip()
+    except Exception as e:
+        return False, str(e)
 
 
 def _systemctl_user(*args):
@@ -912,24 +936,50 @@ def get_service_status():
     """Get the status of the harbour-skodja systemd user service.
     Returns dict with: active, enabled, status_text
     """
-    ok, output = _systemctl_user("is-active", SERVICE_NAME)
-    active = ok and output.strip() == "active"
+    # Try systemctl first (works when run from terminal or with proper permissions)
+    ok, output = _systemctl_user("show", SERVICE_NAME, "--property=ActiveState,UnitFileState")
+    active = False
+    enabled = False
+    status_text = "Ukendt"
 
-    ok2, output2 = _systemctl_user("is-enabled", SERVICE_NAME)
-    enabled = ok2 and output2.strip() in ("enabled", "static")
+    if ok and "ActiveState=" in output:
+        for line in output.split("\n"):
+            if line.startswith("ActiveState="):
+                state = line.split("=", 1)[1].strip()
+                active = state == "active"
+                if active:
+                    status_text = "K\u00f8rer"
+                elif state == "inactive":
+                    status_text = "Stoppet"
+                elif state == "failed":
+                    status_text = "Fejlet"
+                elif state == "activating":
+                    status_text = "Starter..."
+                else:
+                    status_text = state
+            elif line.startswith("UnitFileState="):
+                state = line.split("=", 1)[1].strip()
+                enabled = state in ("enabled", "static")
+        return {"active": active, "enabled": enabled, "status_text": status_text}
 
-    if active:
-        status_text = "Kører"
-    elif ok:
-        status_text = "Stoppet"
-    else:
-        status_text = "Ukendt"
+    # Fallback: check if the process is running by looking for python3 with our script
+    try:
+        result = subprocess.run(["pgrep", "-f", "github_client.py"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0 and result.stdout.strip():
+            # Process is running - service is active
+            ok2, output2 = _systemctl_user("is-enabled", SERVICE_NAME)
+            enabled = ok2 and output2.strip() in ("enabled", "static")
+            return {"active": True, "enabled": enabled, "status_text": "K\u00f8rer"}
+    except Exception:
+        pass
 
-    return {
-        "active": active,
-        "enabled": enabled,
-        "status_text": status_text,
-    }
+    # Check if service file exists (installed but maybe not running)
+    ok3, output3 = _systemctl_user("is-enabled", SERVICE_NAME)
+    if ok3:
+        enabled = output3.strip() in ("enabled", "static")
+        return {"active": False, "enabled": enabled, "status_text": "Stoppet"}
+
+    return {"active": False, "enabled": False, "status_text": "Ikke installeret"}
 
 
 def start_service():
