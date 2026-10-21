@@ -812,8 +812,7 @@ class TestPackagingFiles(unittest.TestCase):
             content = f.read()
         self.assertIn("python3", content)
         self.assertIn("github_client.py", content)
-        self.assertIn("Type=simple", content)
-        self.assertIn("Restart=on-failure", content)
+        self.assertIn("Type=oneshot", content)
         self.assertNotIn("harbour-skodja.timer", content)
 
     def test_spec_runs_python_daemon_directly(self):

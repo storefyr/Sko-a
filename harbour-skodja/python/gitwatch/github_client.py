@@ -932,206 +932,144 @@ def _systemctl_user(*args):
         return False, str(e)
 
 
-def get_service_status():
-    """Get the status of the harbour-skodja background daemon.
-    Returns dict with: active, enabled, status_text
+_DAEMON_PID_FILE = os.path.join(DATA_DIR, "daemon.pid")
+_DAEMON_LOG_FILE = os.path.join(DATA_DIR, "daemon.log")
 
-    Strategy:
-    1. Check if daemon process is running (pgrep) - most reliable
-    2. Check if service is enabled (symlink in default.target.wants)
-    3. Fall back to systemctl if available
-    """
-    active = False
-    enabled = False
-    status_text = "Stoppet"
 
-    # 1. Check if daemon process is actually running
+def _get_daemon_pid():
+    """Get PID of running daemon process, or None if not running."""
     try:
         result = subprocess.run(
             ["pgrep", "-f", "harbour-skodja.*github_client.py"], capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0 and result.stdout.strip():
-            active = True
-            status_text = "K\u00f8rer"
+            pids = [int(p) for p in result.stdout.strip().split()]
+            return pids[0] if pids else None
     except Exception:
         pass
+    return None
 
-    # 2. Check if service is enabled (symlink exists)
+
+def _is_daemon_running():
+    """Check if daemon process is running."""
+    return _get_daemon_pid() is not None
+
+
+def get_service_status():
+    """Get daemon status. Returns dict with: active, enabled, status_text, pid"""
+    active = _is_daemon_running()
+    pid = _get_daemon_pid() if active else None
+
+    # Check if autostart is enabled (symlink exists)
     home = os.path.expanduser("~")
     wants_dir = os.path.join(home, ".config", "systemd", "user", "default.target.wants")
     service_link = os.path.join(wants_dir, SERVICE_NAME)
-    if os.path.islink(service_link) or os.path.exists(service_link):
-        enabled = True
+    enabled = os.path.islink(service_link) or os.path.exists(service_link)
 
-    # 3. If not running, try systemctl for more info
-    if not active:
-        ok, output = _systemctl_user("show", SERVICE_NAME, "--property=ActiveState")
-        if ok and "ActiveState=" in output:
-            state = output.split("ActiveState=")[1].split("\n")[0].strip()
-            if state == "failed":
-                status_text = "Fejlet"
-            elif state == "activating":
-                status_text = "Starter..."
-            elif state == "inactive":
-                status_text = "Stoppet"
-
-    # 4. Check if service file exists at all
-    service_file = os.path.join(home, ".config", "systemd", "user", SERVICE_NAME)
-    system_service_file = "/usr/lib/systemd/user/" + SERVICE_NAME
-    if not os.path.exists(service_file) and not os.path.exists(system_service_file):
-        if not active:
+    if active:
+        status_text = "K\u00f8rer (PID %d)" % pid if pid else "K\u00f8rer"
+    else:
+        # Check if service file exists
+        service_file = "/usr/lib/systemd/user/" + SERVICE_NAME
+        if os.path.exists(service_file):
+            status_text = "Stoppet"
+        else:
             status_text = "Ikke installeret"
 
     return {
         "active": active,
         "enabled": enabled,
         "status_text": status_text,
+        "pid": pid,
     }
 
 
-def _systemd_dbus_call(unit, method):
-    """Call systemd via D-Bus to control a unit.
-    This works from Sailjail sandbox (unlike systemctl).
-    Returns (success, message).
-    """
-    # systemd user instance D-Bus paths
-    manager_path = "/org/freedesktop/systemd1"
-    manager_iface = "org.freedesktop.systemd1.Manager"
-
-    # First, get the unit path
-    cmd = [
-        "dbus-send",
-        "--session",
-        "--print-reply",
-        "--dest=org.freedesktop.systemd1",
-        manager_path,
-        manager_iface + ".GetUnit",
-        "string:" + unit,
-    ]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        if result.returncode != 0:
-            return False, "Unit ikke fundet: " + result.stderr.strip()
-        # Parse unit path from output: object path "/org/freedesktop/systemd1/unit/..."
-        for line in result.stdout.split("\n"):
-            if "/org/freedesktop/systemd1/unit/" in line:
-                unit_path = line.strip().split('"')[1] if '"' in line else line.strip()
-                break
-        else:
-            return False, "Kunne ikke finde unit path"
-    except Exception as e:
-        return False, str(e)
-
-    # Now call the method on the unit
-    unit_iface = "org.freedesktop.systemd1.Unit"
-    cmd2 = [
-        "dbus-send",
-        "--session",
-        "--print-reply",
-        "--dest=org.freedesktop.systemd1",
-        unit_path,
-        unit_iface + "." + method,
-        "string:replace",
-    ]
-    try:
-        result2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=10)
-        return result2.returncode == 0, result2.stdout.strip() + result2.stderr.strip()
-    except Exception as e:
-        return False, str(e)
-
-
-def _systemd_dbus_manager_call(method, *args):
-    """Call systemd Manager method via D-Bus.
-    Returns (success, message).
-    """
-    cmd = [
-        "dbus-send",
-        "--session",
-        "--print-reply",
-        "--dest=org.freedesktop.systemd1",
-        "/org/freedesktop/systemd1",
-        "org.freedesktop.systemd1.Manager." + method,
-    ]
-    cmd.extend(str(a) for a in args)
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        return result.returncode == 0, result.stdout.strip() + result.stderr.strip()
-    except Exception as e:
-        return False, str(e)
-
-
 def start_service():
-    """Start the harbour-skodja service via D-Bus (works in Sailjail)."""
-    ok, msg = _systemd_dbus_manager_call("StartUnit", "string:" + SERVICE_NAME, "string:replace")
-    if not ok:
-        # Fallback to systemctl
-        ok, msg = _systemctl_user("start", SERVICE_NAME)
-    return {"success": ok, "message": msg}
+    """Start the daemon directly as a background process.
+    Does NOT use systemd - just launches python3 in background.
+    """
+    if _is_daemon_running():
+        return {"success": True, "message": "Allerede k\u00f8rende"}
+
+    ensure_data_dir()
+    script_path = "/usr/share/harbour-skodja/python/gitwatch/github_client.py"
+
+    if not os.path.exists(script_path):
+        return {"success": False, "message": "Script ikke fundet: " + script_path}
+
+    try:
+        # Start daemon in background with nohup, detached from terminal
+        with open(_DAEMON_LOG_FILE, "a") as logf:
+            proc = subprocess.Popen(
+                ["/usr/bin/python3", script_path, "60"],
+                stdout=logf,
+                stderr=logf,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,  # Detach from parent process group
+            )
+        # Save PID
+        with open(_DAEMON_PID_FILE, "w") as f:
+            f.write(str(proc.pid))
+        return {"success": True, "message": "Daemon startet (PID %d)" % proc.pid}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
 def stop_service():
-    """Stop the harbour-skodja service via D-Bus (works in Sailjail)."""
-    ok, msg = _systemd_dbus_manager_call("StopUnit", "string:" + SERVICE_NAME, "string:replace")
-    if not ok:
-        ok, msg = _systemctl_user("stop", SERVICE_NAME)
-    return {"success": ok, "message": msg}
+    """Stop the daemon by killing the process."""
+    pid = _get_daemon_pid()
+    if pid is None:
+        return {"success": True, "message": "Var ikke k\u00f8rende"}
+
+    try:
+        # Try graceful terminate first
+        subprocess.run(["kill", str(pid)], capture_output=True, timeout=5)
+        # Wait a bit and force kill if still running
+        time.sleep(1)
+        if _get_daemon_pid() is not None:
+            subprocess.run(["kill", "-9", str(pid)], capture_output=True, timeout=5)
+        # Clean up PID file
+        if os.path.exists(_DAEMON_PID_FILE):
+            os.remove(_DAEMON_PID_FILE)
+        return {"success": True, "message": "Daemon stoppet"}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
 def restart_service():
-    """Restart the harbour-skodja service via D-Bus (works in Sailjail)."""
-    ok, msg = _systemd_dbus_manager_call("RestartUnit", "string:" + SERVICE_NAME, "string:replace")
-    if not ok:
-        ok, msg = _systemctl_user("restart", SERVICE_NAME)
-    return {"success": ok, "message": msg}
+    """Restart the daemon."""
+    stop_service()
+    time.sleep(1)
+    return start_service()
 
 
 def enable_service():
-    """Enable the harbour-skodja service (start on boot).
-    Uses D-Bus EnableUnitFiles which works in Sailjail.
+    """Enable autostart by creating systemd symlink manually.
+    This only affects boot autostart, not the running daemon.
     """
-    ok, msg = _systemd_dbus_manager_call(
-        "EnableUnitFiles",
-        "array:string:" + SERVICE_NAME,
-        "boolean:false",
-    )
-    if not ok:
-        # Fallback: create symlink manually
-        home = os.path.expanduser("~")
-        wants_dir = os.path.join(home, ".config", "systemd", "user", "default.target.wants")
-        service_file = "/usr/lib/systemd/user/" + SERVICE_NAME
-        link_path = os.path.join(wants_dir, SERVICE_NAME)
-        try:
-            os.makedirs(wants_dir, exist_ok=True)
-            if not os.path.exists(link_path):
-                os.symlink(service_file, link_path)
-            _systemctl_user("daemon-reload")
-            return {"success": True, "message": "Aktiveret (manuelt)"}
-        except Exception as e:
-            return {"success": False, "message": str(e)}
-    return {"success": ok, "message": msg}
+    home = os.path.expanduser("~")
+    wants_dir = os.path.join(home, ".config", "systemd", "user", "default.target.wants")
+    service_file = "/usr/lib/systemd/user/" + SERVICE_NAME
+    link_path = os.path.join(wants_dir, SERVICE_NAME)
+    try:
+        os.makedirs(wants_dir, exist_ok=True)
+        if not os.path.exists(link_path):
+            os.symlink(service_file, link_path)
+        return {"success": True, "message": "Autostart aktiveret"}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
 def disable_service():
-    """Disable the harbour-skodja service (don't start on boot).
-    Uses D-Bus DisableUnitFiles which works in Sailjail.
-    """
-    ok, msg = _systemd_dbus_manager_call(
-        "DisableUnitFiles",
-        "array:string:" + SERVICE_NAME,
-        "boolean:false",
-    )
-    if not ok:
-        # Fallback: remove symlink manually
-        home = os.path.expanduser("~")
-        link_path = os.path.join(home, ".config", "systemd", "user", "default.target.wants", SERVICE_NAME)
-        try:
-            if os.path.islink(link_path) or os.path.exists(link_path):
-                os.remove(link_path)
-            _systemctl_user("daemon-reload")
-            return {"success": True, "message": "Deaktiveret (manuelt)"}
-        except Exception as e:
-            return {"success": False, "message": str(e)}
-    return {"success": ok, "message": msg}
+    """Disable autostart by removing systemd symlink."""
+    home = os.path.expanduser("~")
+    link_path = os.path.join(home, ".config", "systemd", "user", "default.target.wants", SERVICE_NAME)
+    try:
+        if os.path.islink(link_path) or os.path.exists(link_path):
+            os.remove(link_path)
+        return {"success": True, "message": "Autostart deaktiveret"}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
 def get_last_check_time():

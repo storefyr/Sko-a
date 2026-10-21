@@ -19,7 +19,7 @@
 
 Name:           harbour-skodja
 Summary:        Skoðja - GitHub Activity Notifier
-Version:        0.7.0
+Version:        0.7.1
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -77,14 +77,14 @@ install -m 644 config/x-harbour.harbour-skodja.release.conf %{buildroot}%{_datad
 install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
-Description=Skoðja Background Daemon
+Description=Skoðja Background Daemon (autostart)
 After=lipstick.service graphical-session.target
+ConditionPathExists=!/usr/share/harbour-skodja/python/gitwatch/github_client.py.noautostart
 
 [Service]
-Type=simple
-ExecStart=/usr/bin/python3 /usr/share/harbour-skodja/python/gitwatch/github_client.py 60
-Restart=on-failure
-RestartSec=10s
+Type=oneshot
+ExecStart=/usr/bin/python3 -c "import subprocess,os; subprocess.Popen(['/usr/bin/python3', '/usr/share/harbour-skodja/python/gitwatch/github_client.py', '60'], stdout=open(os.path.expanduser('~/.local/share/com.storefyr/harbour-skodja/daemon.log'), 'a'), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)"
+RemainAfterExit=yes
 
 [Install]
 WantedBy=default.target
@@ -93,7 +93,6 @@ SERVICE
 %post
 systemctl --user daemon-reload || true
 systemctl --user enable harbour-skodja.service || true
-systemctl --user restart harbour-skodja.service || true
 systemctl --user restart lipstick || true
 
 %postun
@@ -101,6 +100,7 @@ systemctl --user stop harbour-skodja.service || true
 systemctl --user disable harbour-skodja.service || true
 systemctl --user daemon-reload || true
 systemctl --user restart lipstick || true
+pkill -f "harbour-skodja.*github_client.py" || true
 
 %files
 %defattr(-,root,root,-)
