@@ -989,21 +989,111 @@ def get_service_status():
     }
 
 
+def _systemd_dbus_call(unit, method):
+    """Call systemd via D-Bus to control a unit.
+    This works from Sailjail sandbox (unlike systemctl).
+    Returns (success, message).
+    """
+    # systemd user instance D-Bus paths
+    manager_path = "/org/freedesktop/systemd1"
+    manager_iface = "org.freedesktop.systemd1.Manager"
+
+    # First, get the unit path
+    cmd = [
+        "dbus-send",
+        "--session",
+        "--print-reply",
+        "--dest=org.freedesktop.systemd1",
+        manager_path,
+        manager_iface + ".GetUnit",
+        "string:" + unit,
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            return False, "Unit ikke fundet: " + result.stderr.strip()
+        # Parse unit path from output: object path "/org/freedesktop/systemd1/unit/..."
+        for line in result.stdout.split("\n"):
+            if "/org/freedesktop/systemd1/unit/" in line:
+                unit_path = line.strip().split('"')[1] if '"' in line else line.strip()
+                break
+        else:
+            return False, "Kunne ikke finde unit path"
+    except Exception as e:
+        return False, str(e)
+
+    # Now call the method on the unit
+    unit_iface = "org.freedesktop.systemd1.Unit"
+    cmd2 = [
+        "dbus-send",
+        "--session",
+        "--print-reply",
+        "--dest=org.freedesktop.systemd1",
+        unit_path,
+        unit_iface + "." + method,
+        "string:replace",
+    ]
+    try:
+        result2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=10)
+        return result2.returncode == 0, result2.stdout.strip() + result2.stderr.strip()
+    except Exception as e:
+        return False, str(e)
+
+
+def _systemd_dbus_manager_call(method, *args):
+    """Call systemd Manager method via D-Bus.
+    Returns (success, message).
+    """
+    cmd = [
+        "dbus-send",
+        "--session",
+        "--print-reply",
+        "--dest=org.freedesktop.systemd1",
+        "/org/freedesktop/systemd1",
+        "org.freedesktop.systemd1.Manager." + method,
+    ]
+    cmd.extend(str(a) for a in args)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        return result.returncode == 0, result.stdout.strip() + result.stderr.strip()
+    except Exception as e:
+        return False, str(e)
+
+
 def start_service():
-    """Start the harbour-skodja service."""
-    ok, output = _systemctl_user("start", SERVICE_NAME)
-    return {"success": ok, "message": output}
+    """Start the harbour-skodja service via D-Bus (works in Sailjail)."""
+    ok, msg = _systemd_dbus_manager_call("StartUnit", "string:" + SERVICE_NAME, "string:replace")
+    if not ok:
+        # Fallback to systemctl
+        ok, msg = _systemctl_user("start", SERVICE_NAME)
+    return {"success": ok, "message": msg}
 
 
 def stop_service():
-    """Stop the harbour-skodja service."""
-    ok, output = _systemctl_user("stop", SERVICE_NAME)
-    return {"success": ok, "message": output}
+    """Stop the harbour-skodja service via D-Bus (works in Sailjail)."""
+    ok, msg = _systemd_dbus_manager_call("StopUnit", "string:" + SERVICE_NAME, "string:replace")
+    if not ok:
+        ok, msg = _systemctl_user("stop", SERVICE_NAME)
+    return {"success": ok, "message": msg}
+
+
+def restart_service():
+    """Restart the harbour-skodja service via D-Bus (works in Sailjail)."""
+    ok, msg = _systemd_dbus_manager_call("RestartUnit", "string:" + SERVICE_NAME, "string:replace")
+    if not ok:
+        ok, msg = _systemctl_user("restart", SERVICE_NAME)
+    return {"success": ok, "message": msg}
 
 
 def enable_service():
-    """Enable the harbour-skodja service (start on boot)."""
-    ok, output = _systemctl_user("enable", SERVICE_NAME)
+    """Enable the harbour-skodja service (start on boot).
+    Uses D-Bus EnableUnitFiles which works in Sailjail.
+    """
+    ok, msg = _systemd_dbus_manager_call(
+        "EnableUnitFiles",
+        "array:string:" + SERVICE_NAME,
+        "boolean:false",
+    )
     if not ok:
         # Fallback: create symlink manually
         home = os.path.expanduser("~")
@@ -1018,12 +1108,18 @@ def enable_service():
             return {"success": True, "message": "Aktiveret (manuelt)"}
         except Exception as e:
             return {"success": False, "message": str(e)}
-    return {"success": ok, "message": output}
+    return {"success": ok, "message": msg}
 
 
 def disable_service():
-    """Disable the harbour-skodja service (don't start on boot)."""
-    ok, output = _systemctl_user("disable", SERVICE_NAME)
+    """Disable the harbour-skodja service (don't start on boot).
+    Uses D-Bus DisableUnitFiles which works in Sailjail.
+    """
+    ok, msg = _systemd_dbus_manager_call(
+        "DisableUnitFiles",
+        "array:string:" + SERVICE_NAME,
+        "boolean:false",
+    )
     if not ok:
         # Fallback: remove symlink manually
         home = os.path.expanduser("~")
@@ -1035,13 +1131,7 @@ def disable_service():
             return {"success": True, "message": "Deaktiveret (manuelt)"}
         except Exception as e:
             return {"success": False, "message": str(e)}
-    return {"success": ok, "message": output}
-
-
-def restart_service():
-    """Restart the harbour-skodja service."""
-    ok, output = _systemctl_user("restart", SERVICE_NAME)
-    return {"success": ok, "message": output}
+    return {"success": ok, "message": msg}
 
 
 def get_last_check_time():
