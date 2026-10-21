@@ -131,6 +131,10 @@ def load_state():
                 state["api_cache"] = {}
             if "stats" not in state:
                 state["stats"] = dict(STATS_DEFAULT)
+            else:
+                for key, value in STATS_DEFAULT.items():
+                    if key not in state["stats"]:
+                        state["stats"][key] = value
             if _migrate_old_release_ids(state):
                 save_state(state)
             return state
@@ -162,16 +166,17 @@ def load_state():
 def save_state(state):
     ensure_data_dir()
     state["seen_events"] = state["seen_events"][-MAX_EVENTS_STORED:]
-    state["notified_events"] = state["notified_events"][-MAX_EVENTS_STORED:]
-    # Ensure stats dict exists and has all default keys
+    state["notified_events"] = state["notified_events"][-MAX_NOTIFIED_STORED:]
     if "stats" not in state:
         state["stats"] = dict(STATS_DEFAULT)
     else:
         for key, value in STATS_DEFAULT.items():
             if key not in state["stats"]:
                 state["stats"][key] = value
-    with open(STATE_FILE, "w") as f:
+    tmp_file = STATE_FILE + ".tmp"
+    with open(tmp_file, "w") as f:
         json.dump(state, f, indent=2)
+    os.replace(tmp_file, STATE_FILE)
 
 
 class RateLimitError(Exception):
@@ -750,30 +755,57 @@ def get_new_events(state):
 
 
 def check_for_updates():
+    # Phase 1: Read current seen/notified IDs (brief lock)
     lock_fd = acquire_lock(timeout=10)
     if lock_fd is None:
         print("Could not acquire lock, another instance may be running")
         return []
-
     try:
         state = load_state()
-        new_events, seen_ids = get_new_events(state)
+        seen_ids = set(state.get("seen_events", []))
         notified_ids = set(state.get("notified_events", []))
+        watched_users = state.get("watched_users", ["storefyr"])
+    finally:
+        release_lock(lock_fd)
 
-        truly_new = []
-        for event in new_events:
+    # Phase 2: Fetch events (NO lock held - network I/O can take seconds)
+    new_events = []
+    for username in watched_users:
+        try:
+            events = fetch_user_events(username)
+        except Exception as e:
+            print(f"Error fetching events for {username}: {e}")
+            continue
+        for event in events:
             eid = event.get("id", "")
-            if eid and eid not in notified_ids:
-                truly_new.append(event)
-                notified_ids.add(eid)
+            if eid and eid not in seen_ids:
+                event["user"] = username
+                new_events.append(event)
+                seen_ids.add(eid)
 
-        state["seen_events"] = seen_ids
+    new_events.sort(key=lambda e: e.get("created_at", ""), reverse=True)
+
+    # Phase 3: Save results (brief lock, re-read to avoid clobbering concurrent writes)
+    truly_new = []
+    for event in new_events:
+        eid = event.get("id", "")
+        if eid and eid not in notified_ids:
+            truly_new.append(event)
+            notified_ids.add(eid)
+
+    lock_fd = acquire_lock(timeout=10)
+    if lock_fd is None:
+        print("Could not acquire lock for save, another instance may be running")
+        return truly_new
+    try:
+        state = load_state()
+        state["seen_events"] = list(seen_ids)[-MAX_EVENTS_STORED:]
         state["notified_events"] = list(notified_ids)[-MAX_NOTIFIED_STORED:]
         state["last_check"] = datetime.now(timezone.utc).isoformat()
         save_state(state)
-        return truly_new
     finally:
         release_lock(lock_fd)
+    return truly_new
 
 
 def get_watched_users():
