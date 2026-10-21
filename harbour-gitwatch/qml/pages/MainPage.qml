@@ -55,7 +55,7 @@ Page {
         id: listView
         anchors.fill: parent
         header: PageHeader {
-            title: "GitWatch"
+            title: "Sko\u00f0a"
         }
 
         PullDownMenu {
@@ -69,7 +69,7 @@ Page {
             }
             MenuItem {
                 text: "Test notifikation"
-                onClicked: showNotification("Test", "Dette er en test-notifikation fra GitWatch")
+                onClicked: showNotification("Test", "Dette er en test-notifikation fra Sko\u00f0a")
             }
         }
 
@@ -215,7 +215,7 @@ Page {
 
                     if (otherEvents.length > 0) {
                         var firstOther = otherEvents[0]
-                        var otherSummary = "GitWatch: " + firstOther.summary
+                        var otherSummary = "Sko\u00f0a: " + firstOther.summary
                         var otherBody = (firstOther.user || "") + ": " + firstOther.body
                         if (otherEvents.length > 1) {
                             otherBody += " (+" + (otherEvents.length - 1) + " flere)"
@@ -225,7 +225,7 @@ Page {
 
                     if (releaseEvents.length > 0) {
                         var firstRelease = releaseEvents[0]
-                        var releaseSummary = "GitWatch: " + firstRelease.summary
+                        var releaseSummary = "Sko\u00f0a: " + firstRelease.summary
                         var releaseBody = (firstRelease.user || "") + ": " + firstRelease.body
                         if (releaseEvents.length > 1) {
                             releaseBody += " (+" + (releaseEvents.length - 1) + " flere)"

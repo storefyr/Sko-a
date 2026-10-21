@@ -18,8 +18,8 @@
 %define __requires_exclude ^python3.*$
 
 Name:           harbour-gitwatch
-Summary:        GitHub Activity Notifier
-Version:        0.4.1
+Summary:        Sko\u00f0a - GitHub Activity Notifier
+Version:        0.5.0
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -77,7 +77,7 @@ install -m 644 config/x-harbour.harbour-gitwatch.release.conf %{buildroot}%{_dat
 install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
-Description=GitWatch Background Daemon
+Description=Sko\u00f0a Background Daemon
 After=lipstick.service graphical-session.target
 
 [Service]

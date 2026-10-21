@@ -1,4 +1,4 @@
-# Installation af GitWatch på Jolla Phone 2026
+# Installation af Skoða på Jolla Phone 2026
 
 ## Forudsætninger
 
@@ -14,7 +14,7 @@ chmod +x build.sh
 ./build.sh
 ```
 
-Dette skaber `harbour-gitwatch-0.1.0.tar.bz2`.
+Dette skaber `harbour-gitwatch-0.5.0.tar.bz2`.
 
 ## Trin 2: Build RPM pakken
 
@@ -23,7 +23,7 @@ Dette skaber `harbour-gitwatch-0.1.0.tar.bz2`.
 # Download fra: https://docs.sailfishos.org/Develop/Sailfish_SDK/
 
 # Build for Jolla Phone 2026 (aarch64)
-sb2 -t SailfishOS-latest-aarch64 -R rpmbuild -ta harbour-gitwatch-0.1.0.tar.bz2
+sb2 -t SailfishOS-latest-aarch64 -R rpmbuild -ta harbour-gitwatch-0.5.0.tar.bz2
 ```
 
 ## Trin 3: Installer på telefonen
@@ -32,37 +32,37 @@ sb2 -t SailfishOS-latest-aarch64 -R rpmbuild -ta harbour-gitwatch-0.1.0.tar.bz2
 
 ```bash
 # Kopier RPM til telefonen
-scp harbour-gitwatch-0.1.0-1.noarch.rpm nemo@<telefon-ip>:/home/nemo/
+scp harbour-gitwatch-0.5.0-1.noarch.rpm nemo@<telefon-ip>:/home/nemo/
 
 # SSH ind på telefonen
 ssh nemo@<telefon-ip>
 
 # Installer
-pkcon install-local harbour-gitwatch-0.1.0-1.noarch.rpm
+pkcon install-local harbour-gitwatch-0.5.0-1.noarch.rpm
 ```
 
 ### Eller direkte på telefonen:
 
 1. Kopier `.rpm` filen til telefonens Downloads mappe
 2. Åbn Terminal appen på telefonen
-3. Kør: `pkcon install-local ~/Downloads/harbour-gitwatch-0.1.0-1.noarch.rpm`
+3. Kør: `pkcon install-local ~/Downloads/harbour-gitwatch-0.5.0-1.noarch.rpm`
 
-## Trin 4: Aktiver baggrundstjek
+## Trin 4: Aktiver baggrundsdaemon
 
-Efter installation aktiveres baggrundstjek automatisk. Du kan også gøre det manuelt:
+Efter installation aktiveres baggrundsdaemonen automatisk. Du kan også gøre det manuelt:
 
 ```bash
-# Aktiver timer
-systemctl --user enable harbour-gitwatch.timer
-systemctl --user start harbour-gitwatch.timer
+# Aktiver daemon
+systemctl --user enable harbour-gitwatch.service
+systemctl --user start harbour-gitwatch.service
 
 # Tjek status
-systemctl --user status harbour-gitwatch.timer
+systemctl --user status harbour-gitwatch.service
 ```
 
 ## Trin 5: Åbn app'en
 
-1. Find "GitWatch" i app-listen på telefonen
+1. Find "Skoða" i app-listen på telefonen
 2. Åbn app'en - den viser seneste aktivitet for `storefyr`
 3. Gå til **Indstillinger** (træk ned fra toppen) for at tilføje flere brugere
 
@@ -71,14 +71,14 @@ systemctl --user status harbour-gitwatch.timer
 ### Ingen notifikationer?
 
 ```bash
-# Tjek om timeren kører
-systemctl --user list-timers | grep gitwatch
+# Tjek om daemonen kører
+systemctl --user status harbour-gitwatch.service
 
 # Se logfiler
 journalctl --user -u harbour-gitwatch.service -n 50
 
-# Kør manuel tjek
-systemctl --user start harbour-gitwatch.service
+# Genstart daemon
+systemctl --user restart harbour-gitwatch.service
 ```
 
 ### App'en viser ingen data?
@@ -90,9 +90,9 @@ systemctl --user start harbour-gitwatch.service
 ## Afinstallation
 
 ```bash
-# Stop og deaktiver timer
-systemctl --user stop harbour-gitwatch.timer
-systemctl --user disable harbour-gitwatch.timer
+# Stop og deaktiver daemon
+systemctl --user stop harbour-gitwatch.service
+systemctl --user disable harbour-gitwatch.service
 
 # Fjern pakke
 pkcon remove harbour-gitwatch

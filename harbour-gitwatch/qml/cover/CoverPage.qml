@@ -38,7 +38,7 @@ CoverBackground {
         }
 
         Label {
-            text: "GitWatch"
+            text: "Sko\u00f0a"
             color: Theme.primaryColor
             font.pixelSize: Theme.fontSizeMedium
             font.bold: true

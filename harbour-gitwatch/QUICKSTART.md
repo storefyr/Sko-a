@@ -1,4 +1,4 @@
-# GitWatch v0.1.0 - Hurtig start
+# Skoða v0.5.0 - Hurtig start
 
 ## Download færdigbygget RPM
 
@@ -6,36 +6,36 @@ Gå til [Releases](https://github.com/storefyr/Sko-a/releases) og download RPM t
 
 | Fil | Enhed |
 |-----|-------|
-| `harbour-gitwatch-0.1.0-aarch64.rpm` | **Jolla Phone 2026** (ARM64) |
-| `harbour-gitwatch-0.1.0-armv7hl.rpm` | 32-bit ARM enheder |
-| `harbour-gitwatch-0.1.0-i486.rpm` | Emulator (x86) |
+| `harbour-gitwatch-0.5.0-aarch64.rpm` | **Jolla Phone 2026** (ARM64) |
+| `harbour-gitwatch-0.5.0-armv7hl.rpm` | 32-bit ARM enheder |
+| `harbour-gitwatch-0.5.0-i486.rpm` | Emulator (x86) |
 
 ## Installation på Jolla Phone 2026
 
 ```bash
 # 1. Kopier RPM til telefonen
-scp harbour-gitwatch-0.1.0-aarch64.rpm nemo@<telefon-ip>:/home/nemo/
+scp harbour-gitwatch-0.5.0-aarch64.rpm nemo@<telefon-ip>:/home/nemo/
 
 # 2. SSH ind på telefonen
 ssh nemo@<telefon-ip>
 
 # 3. Installer
-pkcon install-local harbour-gitwatch-0.1.0-aarch64.rpm
+pkcon install-local harbour-gitwatch-0.5.0-aarch64.rpm
 
-# 4. Verificer at baggrundstjek er aktivt
-systemctl --user status harbour-gitwatch.timer
+# 4. Verificer at baggrundsdaemon kører
+systemctl --user status harbour-gitwatch.service
 ```
 
-## Manuel aktivering af baggrundstjek
+## Manuel aktivering af baggrundsdaemon
 
 ```bash
-systemctl --user enable harbour-gitwatch.timer
-systemctl --user start harbour-gitwatch.timer
+systemctl --user enable harbour-gitwatch.service
+systemctl --user start harbour-gitwatch.service
 ```
 
 ## Åbn app'en
 
-1. Find **GitWatch** i app-listen
+1. Find **Skoða** i app-listen
 2. App'en starter med at overvåge `storefyr`
 3. Træk ned for at opdatere manuelt
 4. Gå til **Indstillinger** for at tilføje flere brugere
@@ -65,16 +65,17 @@ ls -lh RPMS/
 # Se logs
 journalctl --user -u harbour-gitwatch.service -n 50
 
-# Manuel tjek
-systemctl --user start harbour-gitwatch.service
+# Genstart daemon
+systemctl --user restart harbour-gitwatch.service
 
-# Tjek timer status
-systemctl --user list-timers | grep gitwatch
+# Tjek daemon status
+systemctl --user status harbour-gitwatch.service
 ```
 
 ## CI/CD
 
 Projektet bygges automatisk med GitHub Actions:
+
 - **CI**: Tester, lint, validering og RPM build ved hver push/PR
 - **Release**: Bygger RPM'er til alle arkitekturer ved git tags (`v*`)
 

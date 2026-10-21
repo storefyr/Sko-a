@@ -1,4 +1,4 @@
-# harbour-gitwatch
+# Skoða
 
 En Sailfish OS app der giver notifikationer når der er ny aktivitet på GitHub-profiler.
 
@@ -6,8 +6,9 @@ En Sailfish OS app der giver notifikationer når der er ny aktivitet på GitHub-
 
 - Overvåger GitHub-brugere (starter med `storefyr`)
 - Viser seneste aktivitet: pushes, pull requests, issues, releases, nye repos
-- Kører baggrundstjek hver 30. minut via systemd timer
+- Kører som baggrundsdaemon (tjekker hvert minut)
 - Viser systemnotifikationer ved ny aktivitet
+- Lyd via Sailfish OS indstillinger (kun ved nye releases)
 - Tilføj/fjern brugere du vil følge
 
 ## Installation
@@ -33,29 +34,18 @@ cp -r qml python /usr/share/harbour-gitwatch/
 cat > /usr/share/applications/harbour-gitwatch.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
-Name=GitWatch
+Name=Skoða
 Exec=/usr/bin/invoker --type=qt5 -s /usr/bin/sailfish-qml /usr/share/harbour-gitwatch/qml/harbour-gitwatch.qml
 Icon=harbour-gitwatch
 X-Nemo-Application-Type=silica-qt5
 EOF
 
-# Aktiver baggrundstjek
-systemctl --user enable --now harbour-gitwatch.timer
+# Aktiver baggrundsdaemon
+systemctl --user enable --now harbour-gitwatch.service
 ```
 
 ## Arkitektur
 
 - **QML UI**: Sailfish Silica komponenter
 - **Python backend**: PyOtherSide til GitHub API kald
-- **Baggrundstjek**: systemd user timer hver 30. minut
-- **Notifikationer**: D-Bus via `org.freedesktop.Notifications`
-- **State**: Gemmes i `~/.local/share/harbour-gitwatch/state.json`
-
-## GitHub API
-
-App'en bruger GitHub REST API v3 uden autentifikation.
-Rate limit: 60 requests/time for uautentificerede kald.
-
-## Licens
-
-GPL-3.0
+- **Baggrundsdaemon**: systemd user service (kører kontinuerligt)
