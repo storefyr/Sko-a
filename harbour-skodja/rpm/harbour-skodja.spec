@@ -19,7 +19,7 @@
 
 Name:           harbour-skodja
 Summary:        Skoðja - GitHub Activity Notifier
-Version:        0.7.3
+Version:        0.7.4
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0

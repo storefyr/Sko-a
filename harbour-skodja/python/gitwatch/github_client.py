@@ -111,6 +111,8 @@ def load_state():
                 state = json.load(f)
             if "notified_events" not in state:
                 state["notified_events"] = []
+            if "api_cache" not in state:
+                state["api_cache"] = {}
             if _migrate_old_release_ids(state):
                 save_state(state)
             return state
@@ -121,6 +123,7 @@ def load_state():
         "seen_events": [],
         "notified_events": [],
         "watched_users": ["storefyr"],
+        "api_cache": {},
         "notifications_enabled": True,
         "notification_sound": True,
         "notification_filter": [
@@ -149,24 +152,75 @@ class RateLimitError(Exception):
     pass
 
 
+def _get_cached_etag(state, url):
+    """Get cached ETag for a URL."""
+    cache = state.get("api_cache", {})
+    entry = cache.get(url, {})
+    return entry.get("etag"), entry.get("data")
+
+
+def _save_cached_etag(state, url, etag, data):
+    """Save ETag and data for a URL. Limits cache to 100 entries."""
+    if "api_cache" not in state:
+        state["api_cache"] = {}
+    state["api_cache"][url] = {"etag": etag, "data": data}
+    # Limit cache size
+    if len(state["api_cache"]) > 100:
+        oldest = sorted(state["api_cache"].keys())[: len(state["api_cache"]) - 100]
+        for k in oldest:
+            del state["api_cache"][k]
+
+
 def api_get(url):
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "application/vnd.github.v3+json",
-        },
-    )
+    """Make a GitHub API GET request with ETag caching.
+    Returns (data, from_cache) where from_cache is True if 304 Not Modified.
+    On 304, returns cached data from state file.
+    """
+    lock_fd = acquire_lock(timeout=5)
+    state = None
+    try:
+        state = load_state()
+        cached_etag, cached_data = _get_cached_etag(state, url)
+    finally:
+        if lock_fd is not None:
+            release_lock(lock_fd)
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/vnd.github.v3+json",
+    }
+    if cached_etag:
+        headers["If-None-Match"] = cached_etag
+
+    req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            data = json.loads(resp.read().decode("utf-8"))
+            etag = resp.headers.get("ETag", "")
+            # Save to cache
+            if etag:
+                lock_fd = acquire_lock(timeout=5)
+                try:
+                    state = load_state()
+                    _save_cached_etag(state, url, etag, data)
+                    save_state(state)
+                finally:
+                    if lock_fd is not None:
+                        release_lock(lock_fd)
+            return data, False
     except urllib.error.HTTPError as e:
+        if e.code == 304 and cached_data is not None:
+            # Not modified - use cached data
+            return cached_data, True
         body = ""
         try:
             body = e.read().decode("utf-8", errors="ignore").lower()
         except Exception:
             pass
         if e.code == 403 and "rate limit" in body:
+            # If rate limited but we have cached data, use it
+            if cached_data is not None:
+                return cached_data, True
             raise RateLimitError("GitHub API rate limit exceeded")
         raise
 
@@ -363,7 +417,8 @@ def parse_atom_title_to_event(title_text, username, content_html="", entry_id=""
 
 def fetch_user_events_api(username, per_page=30):
     url = f"{GITHUB_API_BASE}/users/{username}/events/public?per_page={per_page}"
-    return api_get(url)
+    data, _ = api_get(url)
+    return data
 
 
 def fetch_user_events_atom(username, per_page=30):
@@ -402,7 +457,7 @@ def get_user_repos_from_html(username):
 
 def fetch_releases_api(owner, repo, per_page=10):
     url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/releases?per_page={per_page}"
-    releases = api_get(url)
+    releases, _ = api_get(url)
     events = []
     for release in releases:
         if release.get("draft", True):

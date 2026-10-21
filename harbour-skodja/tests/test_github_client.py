@@ -730,6 +730,52 @@ class TestPidFileStatus(unittest.TestCase):
                 os.remove(gc.PID_FILE)
 
 
+class TestEtagCaching(unittest.TestCase):
+    """Tests for ETag-based API caching (v0.7.4)."""
+
+    def test_api_cache_in_default_state(self):
+        import gitwatch.github_client as gc
+
+        gc.reset_seen_events()
+        state = gc.load_state()
+        self.assertIn("api_cache", state)
+        self.assertIsInstance(state["api_cache"], dict)
+
+    def test_save_and_get_cached_etag(self):
+        import gitwatch.github_client as gc
+
+        state = {"api_cache": {}}
+        gc._save_cached_etag(state, "https://api.github.com/test", '"abc123"', [{"id": 1}])
+        etag, data = gc._get_cached_etag(state, "https://api.github.com/test")
+        self.assertEqual(etag, '"abc123"')
+        self.assertEqual(data, [{"id": 1}])
+
+    def test_get_cached_etag_missing(self):
+        import gitwatch.github_client as gc
+
+        state = {"api_cache": {}}
+        etag, data = gc._get_cached_etag(state, "https://api.github.com/missing")
+        self.assertIsNone(etag)
+        self.assertIsNone(data)
+
+    def test_cache_size_limit(self):
+        import gitwatch.github_client as gc
+
+        state = {"api_cache": {}}
+        for i in range(105):
+            gc._save_cached_etag(state, f"https://api.github.com/url{i}", f'"etag{i}"', [])
+        self.assertLessEqual(len(state["api_cache"]), 100)
+
+    def test_api_get_returns_tuple(self):
+        """api_get should return (data, from_cache) tuple."""
+        import gitwatch.github_client as gc
+        import inspect
+
+        src = inspect.getsource(gc.api_get)
+        self.assertIn("return data, False", src)
+        self.assertIn("return cached_data, True", src)
+
+
 class TestRateLimitHandling(unittest.TestCase):
     """Test rate limit fallback to Atom feed."""
 
