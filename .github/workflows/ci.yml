@@ -178,7 +178,9 @@ jobs:
           for f in $(find . -name "*.qml"); do
             echo "  Checking $f"
             grep -q "import QtQuick" "$f" || { echo "    ERROR: Missing QtQuick import"; exit 1; }
-            grep -q "import Sailfish.Silica" "$f" || { echo "    ERROR: Missing Silica import"; exit 1; }
+            if grep -qE "ApplicationWindow|Page \{|SilicaListView|SilicaFlickable" "$f"; then
+              grep -q "import Sailfish.Silica" "$f" || { echo "    ERROR: Missing Silica import for UI file"; exit 1; }
+            fi
             open=$(grep -o '{' "$f" | wc -l)
             close=$(grep -o '}' "$f" | wc -l)
             if [ "$open" != "$close" ]; then
