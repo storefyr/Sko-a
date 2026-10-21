@@ -70,6 +70,39 @@ def release_lock(lock_fd):
             pass
 
 
+def _is_old_release_id(event_id):
+    """Check if an event ID uses the old (pre-0.6.4) release format.
+    New format: release-{owner}/{repo}/{tag_name} (contains slashes after release-)
+    Old API format: release-{numeric_id} (no slashes)
+    Old Atom format: tag-... (starts with tag-)
+    """
+    if not event_id or not isinstance(event_id, str):
+        return False
+    if event_id.startswith("release-"):
+        rest = event_id[len("release-") :]
+        return "/" not in rest
+    if event_id.startswith("tag-"):
+        return True
+    return False
+
+
+def _migrate_old_release_ids(state):
+    """Remove old-format release IDs from seen/notified lists.
+    Old IDs won't match new normalized IDs, causing duplicate notifications.
+    Removing them means old releases get re-notified once after upgrade,
+    then stay stable with the new ID format.
+    """
+    seen = state.get("seen_events", [])
+    notified = state.get("notified_events", [])
+    new_seen = [e for e in seen if not _is_old_release_id(e)]
+    new_notified = [e for e in notified if not _is_old_release_id(e)]
+    if len(new_seen) != len(seen) or len(new_notified) != len(notified):
+        state["seen_events"] = new_seen
+        state["notified_events"] = new_notified
+        return True
+    return False
+
+
 def load_state():
     ensure_data_dir()
     if os.path.exists(STATE_FILE):
@@ -78,6 +111,8 @@ def load_state():
                 state = json.load(f)
             if "notified_events" not in state:
                 state["notified_events"] = []
+            if _migrate_old_release_ids(state):
+                save_state(state)
             return state
         except (json.JSONDecodeError, IOError):
             pass
@@ -382,7 +417,7 @@ def fetch_releases_api(owner, repo, per_page=10):
         rpm_count = sum(1 for n in asset_names if n.endswith(".rpm"))
         events.append(
             {
-                "id": f"release-{release['id']}",
+                "id": f"release-{owner}/{repo}/{tag_name}",
                 "type": "ReleaseEvent",
                 "repo": f"{owner}/{repo}",
                 "summary": "Ny release",
@@ -405,7 +440,6 @@ def fetch_tags_atom(owner, repo, per_page=10, min_age_minutes=1):
     tags = []
     now = datetime.now(timezone.utc)
     for entry in root.findall("atom:entry", ATOM_NS)[:per_page]:
-        eid = entry.find("atom:id", ATOM_NS)
         title = entry.find("atom:title", ATOM_NS)
         updated = entry.find("atom:updated", ATOM_NS)
         link = entry.find("atom:link", ATOM_NS)
@@ -425,7 +459,7 @@ def fetch_tags_atom(owner, repo, per_page=10, min_age_minutes=1):
             pass
         tags.append(
             {
-                "id": f"tag-{eid.text if eid is not None else tag_name}",
+                "id": f"release-{owner}/{repo}/{tag_name}",
                 "type": "ReleaseEvent",
                 "repo": f"{owner}/{repo}",
                 "summary": "Ny release",

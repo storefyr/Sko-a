@@ -442,7 +442,7 @@ class TestEventDeduplication(unittest.TestCase):
     def test_check_for_updates_no_duplicate_notifications(self):
         fake_events = [
             {
-                "id": "release-123",
+                "id": "release-a/b/v1.0",
                 "type": "ReleaseEvent",
                 "repo": "a/b",
                 "summary": "Ny release",
@@ -471,7 +471,7 @@ class TestEventDeduplication(unittest.TestCase):
             self.assertEqual(len(third), 0)
 
             state = github_client.load_state()
-            self.assertIn("release-123", state["notified_events"])
+            self.assertIn("release-a/b/v1.0", state["notified_events"])
             self.assertIn("push-456", state["notified_events"])
 
     def test_notified_events_persisted(self):
@@ -493,6 +493,87 @@ class TestEventDeduplication(unittest.TestCase):
             state = github_client.load_state()
             self.assertEqual(len(state["notified_events"]), 1)
             self.assertEqual(state["notified_events"][0], "event-1")
+
+
+class TestReleaseIdNormalization(unittest.TestCase):
+    """Tests for normalized release IDs (v0.6.4 fix for duplicate notifications)."""
+
+    def test_is_old_release_id_numeric(self):
+        from gitwatch.github_client import _is_old_release_id
+
+        self.assertTrue(_is_old_release_id("release-419648402"))
+
+    def test_is_old_release_id_atom_tag(self):
+        from gitwatch.github_client import _is_old_release_id
+
+        self.assertTrue(_is_old_release_id("tag-tag:github.com,2008:Repository/1426576437/v1.2.6"))
+
+    def test_is_old_release_id_normalized(self):
+        from gitwatch.github_client import _is_old_release_id
+
+        self.assertFalse(_is_old_release_id("release-storefyr/Straumr/v1.2.6"))
+
+    def test_is_old_release_id_non_release(self):
+        from gitwatch.github_client import _is_old_release_id
+
+        self.assertFalse(_is_old_release_id("12345678"))
+        self.assertFalse(_is_old_release_id(""))
+        self.assertFalse(_is_old_release_id(None))
+
+    def test_migrate_old_release_ids(self):
+        from gitwatch.github_client import _migrate_old_release_ids
+
+        state = {
+            "seen_events": [
+                "release-419648402",  # old API format
+                "tag-tag:github.com,2008:Repository/123/v1.0",  # old Atom format
+                "release-storefyr/Straumr/v1.2.6",  # new format
+                "12345678",  # regular event
+            ],
+            "notified_events": [
+                "release-419648402",
+                "release-storefyr/Sko-a/v0.6.3",
+            ],
+        }
+        changed = _migrate_old_release_ids(state)
+        self.assertTrue(changed)
+        self.assertEqual(
+            state["seen_events"],
+            [
+                "release-storefyr/Straumr/v1.2.6",
+                "12345678",
+            ],
+        )
+        self.assertEqual(
+            state["notified_events"],
+            [
+                "release-storefyr/Sko-a/v0.6.3",
+            ],
+        )
+
+    def test_migrate_no_change_when_already_normalized(self):
+        from gitwatch.github_client import _migrate_old_release_ids
+
+        state = {
+            "seen_events": ["release-storefyr/Straumr/v1.2.6", "12345"],
+            "notified_events": ["release-storefyr/Sko-a/v0.6.3"],
+        }
+        changed = _migrate_old_release_ids(state)
+        self.assertFalse(changed)
+
+    def test_api_and_atom_same_release_id(self):
+        """Verify that fetch_releases_api and fetch_tags_atom produce the same ID format."""
+        from gitwatch.github_client import fetch_releases_api, fetch_tags_atom
+
+        # We can't call the real APIs in tests, but we can verify the ID format
+        # by checking the source code patterns
+        import inspect
+
+        api_src = inspect.getsource(fetch_releases_api)
+        atom_src = inspect.getsource(fetch_tags_atom)
+        # Both should use release-{owner}/{repo}/{tag_name}
+        self.assertIn('f"release-{owner}/{repo}/{tag_name}"', api_src)
+        self.assertIn('f"release-{owner}/{repo}/{tag_name}"', atom_src)
 
 
 class TestRateLimitHandling(unittest.TestCase):
