@@ -411,17 +411,20 @@ def fetch_releases_api(owner, repo, per_page=10):
         if len(assets) == 0:
             continue
         tag_name = release.get("tag_name", "?")
+        release_name = release.get("name", "") or ""
         published_at = release.get("published_at", release.get("created_at", ""))
         html_url = release.get("html_url", f"https://github.com/{owner}/{repo}/releases")
-        asset_names = [a.get("name", "") for a in assets]
-        rpm_count = sum(1 for n in asset_names if n.endswith(".rpm"))
+        if release_name and release_name != tag_name:
+            body_text = f"{release_name} ({repo})"
+        else:
+            body_text = repo
         events.append(
             {
                 "id": f"release-{owner}/{repo}/{tag_name}",
                 "type": "ReleaseEvent",
                 "repo": f"{owner}/{repo}",
-                "summary": "Ny release",
-                "body": f"{tag_name} i {repo} ({rpm_count} RPM{'er' if rpm_count != 1 else ''})",
+                "summary": tag_name,
+                "body": body_text,
                 "created_at": published_at,
                 "url": html_url,
                 "user": owner,
@@ -462,8 +465,8 @@ def fetch_tags_atom(owner, repo, per_page=10, min_age_minutes=1):
                 "id": f"release-{owner}/{repo}/{tag_name}",
                 "type": "ReleaseEvent",
                 "repo": f"{owner}/{repo}",
-                "summary": "Ny release",
-                "body": f"{tag_name} i {repo}",
+                "summary": tag_name,
+                "body": repo,
                 "created_at": created_str,
                 "url": link_href or f"https://github.com/{owner}/{repo}/releases",
                 "user": owner,
@@ -880,7 +883,7 @@ def check_and_notify():
             sound_enabled = is_notification_sound_enabled()
             first = release_events[0]
             summary = "Skoðja: " + first.get("summary", "Ny release")
-            body = first.get("user", "") + ": " + first.get("body", "")
+            body = first.get("body", "")
             if len(release_events) > 1:
                 body += " (+" + str(len(release_events) - 1) + " flere)"
             if publish_notification(summary, body, is_release=sound_enabled):

@@ -61,7 +61,7 @@ Page {
             }
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "v0.6.4"
+                text: "v0.6.5"
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeExtraSmall
             }
@@ -235,7 +235,7 @@ Page {
                     if (releaseEvents.length > 0) {
                         var firstRelease = releaseEvents[0]
                         var releaseSummary = "Skoða: " + firstRelease.summary
-                        var releaseBody = (firstRelease.user || "") + ": " + firstRelease.body
+                        var releaseBody = firstRelease.body
                         if (releaseEvents.length > 1) {
                             releaseBody += " (+" + (releaseEvents.length - 1) + " flere)"
                         }

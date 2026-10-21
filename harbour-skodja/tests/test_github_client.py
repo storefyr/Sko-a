@@ -576,6 +576,46 @@ class TestReleaseIdNormalization(unittest.TestCase):
         self.assertIn('f"release-{owner}/{repo}/{tag_name}"', atom_src)
 
 
+class TestConciseReleaseNotifications(unittest.TestCase):
+    """Tests for concise release notification format (v0.6.5)."""
+
+    def test_releases_api_summary_is_tag_name(self):
+        """fetch_releases_api should use tag_name as summary, not 'Ny release'."""
+        from gitwatch.github_client import fetch_releases_api
+        import inspect
+
+        src = inspect.getsource(fetch_releases_api)
+        self.assertIn('"summary": tag_name', src)
+        self.assertNotIn('"summary": "Ny release"', src)
+
+    def test_tags_atom_summary_is_tag_name(self):
+        """fetch_tags_atom should use tag_name as summary, not 'Ny release'."""
+        from gitwatch.github_client import fetch_tags_atom
+        import inspect
+
+        src = inspect.getsource(fetch_tags_atom)
+        self.assertIn('"summary": tag_name', src)
+        self.assertNotIn('"summary": "Ny release"', src)
+
+    def test_releases_api_body_uses_release_name(self):
+        """fetch_releases_api should use release name in body if available."""
+        from gitwatch.github_client import fetch_releases_api
+        import inspect
+
+        src = inspect.getsource(fetch_releases_api)
+        self.assertIn("release_name", src)
+        self.assertIn("body_text", src)
+
+    def test_releases_api_no_rpm_count_in_body(self):
+        """RPM count should not be in notification body anymore."""
+        from gitwatch.github_client import fetch_releases_api
+        import inspect
+
+        src = inspect.getsource(fetch_releases_api)
+        # rpm_count can still be calculated but not in body
+        self.assertNotIn('"body": f"{tag_name} i {repo}', src)
+
+
 class TestRateLimitHandling(unittest.TestCase):
     """Test rate limit fallback to Atom feed."""
 
