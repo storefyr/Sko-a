@@ -933,53 +933,60 @@ def _systemctl_user(*args):
 
 
 def get_service_status():
-    """Get the status of the harbour-skodja systemd user service.
+    """Get the status of the harbour-skodja background daemon.
     Returns dict with: active, enabled, status_text
+
+    Strategy:
+    1. Check if daemon process is running (pgrep) - most reliable
+    2. Check if service is enabled (symlink in default.target.wants)
+    3. Fall back to systemctl if available
     """
-    # Try systemctl first (works when run from terminal or with proper permissions)
-    ok, output = _systemctl_user("show", SERVICE_NAME, "--property=ActiveState,UnitFileState")
     active = False
     enabled = False
-    status_text = "Ukendt"
+    status_text = "Stoppet"
 
-    if ok and "ActiveState=" in output:
-        for line in output.split("\n"):
-            if line.startswith("ActiveState="):
-                state = line.split("=", 1)[1].strip()
-                active = state == "active"
-                if active:
-                    status_text = "K\u00f8rer"
-                elif state == "inactive":
-                    status_text = "Stoppet"
-                elif state == "failed":
-                    status_text = "Fejlet"
-                elif state == "activating":
-                    status_text = "Starter..."
-                else:
-                    status_text = state
-            elif line.startswith("UnitFileState="):
-                state = line.split("=", 1)[1].strip()
-                enabled = state in ("enabled", "static")
-        return {"active": active, "enabled": enabled, "status_text": status_text}
-
-    # Fallback: check if the process is running by looking for python3 with our script
+    # 1. Check if daemon process is actually running
     try:
-        result = subprocess.run(["pgrep", "-f", "github_client.py"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(
+            ["pgrep", "-f", "harbour-skodja.*github_client.py"], capture_output=True, text=True, timeout=5
+        )
         if result.returncode == 0 and result.stdout.strip():
-            # Process is running - service is active
-            ok2, output2 = _systemctl_user("is-enabled", SERVICE_NAME)
-            enabled = ok2 and output2.strip() in ("enabled", "static")
-            return {"active": True, "enabled": enabled, "status_text": "K\u00f8rer"}
+            active = True
+            status_text = "K\u00f8rer"
     except Exception:
         pass
 
-    # Check if service file exists (installed but maybe not running)
-    ok3, output3 = _systemctl_user("is-enabled", SERVICE_NAME)
-    if ok3:
-        enabled = output3.strip() in ("enabled", "static")
-        return {"active": False, "enabled": enabled, "status_text": "Stoppet"}
+    # 2. Check if service is enabled (symlink exists)
+    home = os.path.expanduser("~")
+    wants_dir = os.path.join(home, ".config", "systemd", "user", "default.target.wants")
+    service_link = os.path.join(wants_dir, SERVICE_NAME)
+    if os.path.islink(service_link) or os.path.exists(service_link):
+        enabled = True
 
-    return {"active": False, "enabled": False, "status_text": "Ikke installeret"}
+    # 3. If not running, try systemctl for more info
+    if not active:
+        ok, output = _systemctl_user("show", SERVICE_NAME, "--property=ActiveState")
+        if ok and "ActiveState=" in output:
+            state = output.split("ActiveState=")[1].split("\n")[0].strip()
+            if state == "failed":
+                status_text = "Fejlet"
+            elif state == "activating":
+                status_text = "Starter..."
+            elif state == "inactive":
+                status_text = "Stoppet"
+
+    # 4. Check if service file exists at all
+    service_file = os.path.join(home, ".config", "systemd", "user", SERVICE_NAME)
+    system_service_file = "/usr/lib/systemd/user/" + SERVICE_NAME
+    if not os.path.exists(service_file) and not os.path.exists(system_service_file):
+        if not active:
+            status_text = "Ikke installeret"
+
+    return {
+        "active": active,
+        "enabled": enabled,
+        "status_text": status_text,
+    }
 
 
 def start_service():
@@ -997,12 +1004,37 @@ def stop_service():
 def enable_service():
     """Enable the harbour-skodja service (start on boot)."""
     ok, output = _systemctl_user("enable", SERVICE_NAME)
+    if not ok:
+        # Fallback: create symlink manually
+        home = os.path.expanduser("~")
+        wants_dir = os.path.join(home, ".config", "systemd", "user", "default.target.wants")
+        service_file = "/usr/lib/systemd/user/" + SERVICE_NAME
+        link_path = os.path.join(wants_dir, SERVICE_NAME)
+        try:
+            os.makedirs(wants_dir, exist_ok=True)
+            if not os.path.exists(link_path):
+                os.symlink(service_file, link_path)
+            _systemctl_user("daemon-reload")
+            return {"success": True, "message": "Aktiveret (manuelt)"}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
     return {"success": ok, "message": output}
 
 
 def disable_service():
     """Disable the harbour-skodja service (don't start on boot)."""
     ok, output = _systemctl_user("disable", SERVICE_NAME)
+    if not ok:
+        # Fallback: remove symlink manually
+        home = os.path.expanduser("~")
+        link_path = os.path.join(home, ".config", "systemd", "user", "default.target.wants", SERVICE_NAME)
+        try:
+            if os.path.islink(link_path) or os.path.exists(link_path):
+                os.remove(link_path)
+            _systemctl_user("daemon-reload")
+            return {"success": True, "message": "Deaktiveret (manuelt)"}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
     return {"success": ok, "message": output}
 
 
