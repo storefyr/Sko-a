@@ -639,18 +639,18 @@ class TestPackagingFiles(unittest.TestCase):
         spec_path = os.path.join(self.RPM_DIR, "harbour-skodja.spec")
         with open(spec_path) as f:
             content = f.read()
-        self.assertIn("harbour-skodja-daemon", content)
+        self.assertIn("python3", content)
+        self.assertIn("github_client.py", content)
         self.assertIn("Type=simple", content)
         self.assertIn("Restart=on-failure", content)
         self.assertNotIn("harbour-skodja.timer", content)
 
-    def test_daemon_script_exists(self):
-        daemon_path = os.path.join(os.path.dirname(__file__), "..", "skodja-daemon.sh")
-        self.assertTrue(os.path.exists(daemon_path))
-        with open(daemon_path) as f:
+    def test_spec_runs_python_daemon_directly(self):
+        spec_path = os.path.join(self.RPM_DIR, "harbour-skodja.spec")
+        with open(spec_path) as f:
             content = f.read()
-        self.assertIn("github_client.py", content)
-        self.assertIn("60", content)
+        self.assertIn("ExecStart=/usr/bin/python3", content)
+        self.assertNotIn("sailjail", content.split("[Service]")[1].split("[Install]")[0])
 
     def test_python_has_run_daemon(self):
         py_path = os.path.join(os.path.dirname(__file__), "..", "python", "gitwatch", "github_client.py")
