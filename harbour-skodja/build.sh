@@ -18,7 +18,7 @@
 set -e
 
 APP_NAME="harbour-skodja"
-VERSION="0.9.6"
+VERSION="0.9.7"
 PACKAGE_NAME="${APP_NAME}-${VERSION}"
 
 cd "$(dirname "$0")"
@@ -39,6 +39,8 @@ cp rpm/harbour-skodja.spec "${PACKAGE_NAME}/rpm/"
 cp harbour-skodja.pro "${PACKAGE_NAME}/"
 cp harbour-skodja.desktop "${PACKAGE_NAME}/"
 cp daemon-wrapper.sh "${PACKAGE_NAME}/"
+cp finish-install.sh "${PACKAGE_NAME}/" 2>/dev/null || true
+cp update.sh "${PACKAGE_NAME}/" 2>/dev/null || true
 cp README.md "${PACKAGE_NAME}/"
 cp INSTALL.md "${PACKAGE_NAME}/" 2>/dev/null || true
 cp QUICKSTART.md "${PACKAGE_NAME}/" 2>/dev/null || true
