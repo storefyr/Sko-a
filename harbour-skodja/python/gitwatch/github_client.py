@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_ATOM_BASE = "https://github.com"
-USER_AGENT = "harbour-skodja/0.9.1 (Sailfish OS)"
+USER_AGENT = "harbour-skodja/0.9.2 (Sailfish OS)"
 
 
 def _get_data_dir():
@@ -994,7 +994,7 @@ def publish_notification(summary, body, is_release=False):
             "string:" + body,  # body
             "array:string:",  # actions
             "dict:string:variant:",  # hints
-            "int32:5000",  # timeout
+            "int32:-1",  # timeout: -1 = never expire (stay in Events view)
         ]
 
         # Add category hint so Sailfish OS knows which sound profile to use
@@ -1022,7 +1022,7 @@ def publish_notification(summary, body, is_release=False):
             body,
             "[]",
             "{'category': <'" + category + "'>}",
-            "5000",
+            "-1",
         ]
         result2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=5)
         return result2.returncode == 0
