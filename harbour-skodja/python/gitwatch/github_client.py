@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_ATOM_BASE = "https://github.com"
-USER_AGENT = "harbour-skodja/0.8.5 (Sailfish OS)"
+USER_AGENT = "harbour-skodja/0.8.6 (Sailfish OS)"
 
 
 def _get_data_dir():
@@ -765,6 +765,9 @@ def check_for_updates():
         seen_ids = set(state.get("seen_events", []))
         notified_ids = set(state.get("notified_events", []))
         watched_users = state.get("watched_users", ["storefyr"])
+        _increment_stat(state, "checks_total")
+        state["last_check"] = datetime.now(timezone.utc).isoformat()
+        save_state(state)
     finally:
         release_lock(lock_fd)
 
@@ -1020,15 +1023,6 @@ def check_and_notify():
         return {"status": "disabled", "notified": 0}
 
     try:
-        lock_fd = acquire_lock(timeout=5)
-        try:
-            state = load_state()
-            _increment_stat(state, "checks_total")
-            save_state(state)
-        finally:
-            if lock_fd is not None:
-                release_lock(lock_fd)
-
         new_events = check_for_updates()
         if not new_events:
             return {"status": "ok", "notified": 0}
@@ -1159,8 +1153,9 @@ def get_statistics():
 
     # Calculate derived values
     total_calls = stats.get("api_calls_total", 0)
-    cached = stats.get("api_calls_cached", 0)
-    cache_hit_rate = (cached / total_calls * 100) if total_calls > 0 else 0
+    cached_304 = stats.get("api_calls_304", 0)
+    cached_rate_limit = stats.get("api_calls_cached", 0) - cached_304
+    cache_hit_rate = (cached_304 / total_calls * 100) if total_calls > 0 else 0
 
     started = stats.get("started_at")
     uptime_str = "Ukendt"
@@ -1213,10 +1208,10 @@ def get_statistics():
         "uptime": uptime_str,
         "last_check": last_check_str,
         "api_calls_total": total_calls,
-        "api_calls_cached": cached,
-        "api_calls_304": stats.get("api_calls_304", 0),
+        "api_calls_304": cached_304,
         "cache_hit_rate": round(cache_hit_rate, 1),
         "api_rate_limited": stats.get("api_rate_limited", 0),
+        "api_cached_on_rate_limit": cached_rate_limit,
         "api_errors": stats.get("api_errors", 0),
         "atom_fallbacks": stats.get("atom_fallbacks", 0),
         "notifications_sent": stats.get("notifications_sent", 0),

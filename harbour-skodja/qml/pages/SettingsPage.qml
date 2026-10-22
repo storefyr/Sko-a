@@ -224,7 +224,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "API-kald i alt: " + statsApiCalls + "\nCache hits (304): " + statsCacheHits + " (" + statsCacheRate + "%)\nRate-limited: " + statsRateLimited + "\nAtom-fallbacks: " + statsAtomFallbacks + "\nAPI-fejl: " + statsApiErrors
+                text: "API-kald i alt: " + statsApiCalls + "\nCache hits (304): " + statsCacheHits + " (" + statsCacheRate + "%)\nRate-limited: " + statsRateLimited + " (cache: " + statsCachedOnLimit + ")\nAtom-fallbacks: " + statsAtomFallbacks + "\nAPI-fejl: " + statsApiErrors
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
@@ -295,7 +295,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "Skoðja 0.8.5\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
+                text: "Skoðja 0.8.6\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
@@ -378,6 +378,7 @@ Page {
     property int statsCacheHits: 0
     property real statsCacheRate: 0
     property int statsRateLimited: 0
+    property int statsCachedOnLimit: 0
     property int statsAtomFallbacks: 0
     property int statsApiErrors: 0
     property int statsChecks: 0
@@ -396,6 +397,7 @@ Page {
             statsCacheHits = s.api_calls_304
             statsCacheRate = s.cache_hit_rate
             statsRateLimited = s.api_rate_limited
+            statsCachedOnLimit = s.api_cached_on_rate_limit
             statsAtomFallbacks = s.atom_fallbacks
             statsApiErrors = s.api_errors
             statsChecks = s.checks_total
