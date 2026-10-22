@@ -829,21 +829,18 @@ class TestPackagingFiles(unittest.TestCase):
         with open(spec_path) as f:
             content = f.read()
         self.assertIn("python3", content)
-        self.assertIn("github_client.py", content)
+        self.assertIn("cp -r python", content)
         self.assertIn("Type=simple", content)
         self.assertIn("Restart=always", content)
-        self.assertIn('Environment="HOME=%h"', content)
-        self.assertIn('Environment="XDG_DATA_HOME=%h/.local/share"', content)
-        self.assertIn('Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus"', content)
-        self.assertIn("After=lipstick.service graphical-session.target dbus.service", content)
-        self.assertIn("Wants=dbus.service", content)
+        self.assertIn("daemon-wrapper.sh", content)
+        self.assertIn("After=lipstick.service graphical-session.target", content)
         self.assertNotIn("harbour-skodja.timer", content)
 
     def test_spec_runs_python_daemon_directly(self):
         spec_path = os.path.join(self.RPM_DIR, "harbour-skodja.spec")
         with open(spec_path) as f:
             content = f.read()
-        self.assertIn("ExecStart=/usr/bin/python3", content)
+        self.assertIn("daemon-wrapper.sh", content)
         self.assertNotIn("sailjail", content.split("[Service]")[1].split("[Install]")[0])
 
     def test_python_has_run_daemon(self):

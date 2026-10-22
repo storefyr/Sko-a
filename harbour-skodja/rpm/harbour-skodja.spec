@@ -19,7 +19,7 @@
 
 Name:           harbour-skodja
 Summary:        Skoðja - GitHub Activity Notifier
-Version:        0.9.4
+Version:        0.9.5
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -74,25 +74,22 @@ install -d %{buildroot}%{_datadir}/lipstick/notificationcategories
 install -m 644 config/x-harbour.harbour-skodja.event.conf %{buildroot}%{_datadir}/lipstick/notificationcategories/
 install -m 644 config/x-harbour.harbour-skodja.release.conf %{buildroot}%{_datadir}/lipstick/notificationcategories/
 
+install -d %{buildroot}%{_datadir}/%{name}
+install -m 755 daemon-wrapper.sh %{buildroot}%{_datadir}/%{name}/daemon-wrapper.sh
+
 install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
 Description=Skoðja Background Daemon
-After=lipstick.service graphical-session.target dbus.service
-Wants=dbus.service
+After=lipstick.service graphical-session.target
 
 [Service]
 Type=simple
-Environment="HOME=%h"
-Environment="USER=%u"
-Environment="XDG_DATA_HOME=%h/.local/share"
-Environment="XDG_RUNTIME_DIR=/run/user/%U"
-Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus"
-ExecStart=/usr/bin/python3 /usr/share/harbour-skodja/python/gitwatch/github_client.py 60
+ExecStart=/usr/share/harbour-skodja/daemon-wrapper.sh 60
 Restart=always
-RestartSec=10s
-TimeoutStartSec=30s
-TimeoutStopSec=10s
+RestartSec=5s
+TimeoutStartSec=15s
+TimeoutStopSec=5s
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=harbour-skodja
@@ -105,7 +102,7 @@ SERVICE
 systemctl --user daemon-reload 2>/dev/null || true
 systemctl --user enable harbour-skodja.service 2>/dev/null || true
 systemctl --user restart lipstick 2>/dev/null || true
-# Service start is handled by update.sh (runs as user, not root)
+/usr/bin/logger -t harbour-skodja-rpm "%post: daemon-reload and enable done" 2>/dev/null || true
 
 %preun
 # Stop the daemon before files are removed (runs as user during uninstall)
