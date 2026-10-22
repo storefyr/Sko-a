@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_ATOM_BASE = "https://github.com"
-USER_AGENT = "harbour-skodja/0.8.6 (Sailfish OS)"
+USER_AGENT = "harbour-skodja/0.9.0 (Sailfish OS)"
 
 
 def _get_data_dir():
@@ -40,6 +40,7 @@ STATE_FILE = os.path.join(DATA_DIR, "state.json")
 LOCK_FILE = os.path.join(DATA_DIR, "state.lock")
 MAX_EVENTS_STORED = 500
 MAX_NOTIFIED_STORED = 500
+MAX_RECENT_EVENTS = 100
 
 STATS_DEFAULT = {
     "api_calls_total": 0,
@@ -127,6 +128,8 @@ def load_state():
                 state = json.load(f)
             if "notified_events" not in state:
                 state["notified_events"] = []
+            if "recent_events" not in state:
+                state["recent_events"] = []
             if "api_cache" not in state:
                 state["api_cache"] = {}
             if "stats" not in state:
@@ -144,6 +147,7 @@ def load_state():
         "last_check": None,
         "seen_events": [],
         "notified_events": [],
+        "recent_events": [],
         "watched_users": ["storefyr"],
         "api_cache": {},
         "stats": dict(STATS_DEFAULT),
@@ -167,6 +171,8 @@ def save_state(state):
     ensure_data_dir()
     state["seen_events"] = state["seen_events"][-MAX_EVENTS_STORED:]
     state["notified_events"] = state["notified_events"][-MAX_NOTIFIED_STORED:]
+    if "recent_events" in state:
+        state["recent_events"] = state["recent_events"][-MAX_RECENT_EVENTS:]
     if "stats" not in state:
         state["stats"] = dict(STATS_DEFAULT)
     else:
@@ -773,6 +779,7 @@ def check_for_updates():
 
     # Phase 2: Fetch events (NO lock held - network I/O can take seconds)
     new_events = []
+    all_recent = []
     for username in watched_users:
         try:
             events = fetch_user_events(username)
@@ -781,11 +788,13 @@ def check_for_updates():
             continue
         for event in events:
             eid = event.get("id", "")
+            event["user"] = username
+            all_recent.append(event)
             if eid and eid not in seen_ids:
-                event["user"] = username
                 new_events.append(event)
                 seen_ids.add(eid)
 
+    all_recent.sort(key=lambda e: e.get("created_at", ""), reverse=True)
     new_events.sort(key=lambda e: e.get("created_at", ""), reverse=True)
 
     # Phase 3: Save results (brief lock, re-read to avoid clobbering concurrent writes)
@@ -804,6 +813,7 @@ def check_for_updates():
         state = load_state()
         state["seen_events"] = list(seen_ids)[-MAX_EVENTS_STORED:]
         state["notified_events"] = list(notified_ids)[-MAX_NOTIFIED_STORED:]
+        state["recent_events"] = all_recent[-MAX_RECENT_EVENTS:]
         state["last_check"] = datetime.now(timezone.utc).isoformat()
         save_state(state)
     finally:
@@ -836,6 +846,14 @@ def remove_watched_user(username):
         state["watched_users"] = users
         save_state(state)
     return users
+
+
+def get_stored_activity(limit=30):
+    """Return recently seen events from state.json without making API calls.
+    Uses the recent_events cache populated by check_for_updates."""
+    state = load_state()
+    events = state.get("recent_events", [])
+    return events[:limit]
 
 
 def get_recent_activity(limit=20):

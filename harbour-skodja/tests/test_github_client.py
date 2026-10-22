@@ -800,15 +800,11 @@ class TestPackagingFiles(unittest.TestCase):
         self.assertIn("x-harbour.harbour-skodja.release.conf", content)
 
     def test_qml_uses_harbour_categories(self):
-        qml_files = [
-            os.path.join(os.path.dirname(__file__), "..", "qml", "pages", "MainPage.qml"),
-            os.path.join(os.path.dirname(__file__), "..", "qml", "background-check.qml"),
-        ]
-        for qml_path in qml_files:
-            with open(qml_path) as f:
-                content = f.read()
-            self.assertIn("x-harbour.harbour-skodja.event", content, f"{qml_path} missing event category")
-            self.assertIn("x-harbour.harbour-skodja.release", content, f"{qml_path} missing release category")
+        py_path = os.path.join(os.path.dirname(__file__), "..", "python", "gitwatch", "github_client.py")
+        with open(py_path) as f:
+            content = f.read()
+        self.assertIn("x-harbour.harbour-skodja.event", content, "Python missing event category")
+        self.assertIn("x-harbour.harbour-skodja.release", content, "Python missing release category")
 
     def test_daemon_uses_dbus_notifications(self):
         py_path = os.path.join(os.path.dirname(__file__), "..", "python", "gitwatch", "github_client.py")

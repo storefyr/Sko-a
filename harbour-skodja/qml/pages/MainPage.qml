@@ -19,7 +19,6 @@
 import QtQuick 2.6
 import Sailfish.Silica 1.0
 import io.thp.pyotherside 1.5
-import Nemo.Notifications 1.0
 
 Page {
     id: mainPage
@@ -28,28 +27,6 @@ Page {
     property var activities: []
     property var watchedUsers: []
     property bool loading: false
-
-    Notification {
-        id: notification
-        appName: "harbour-skodja"
-        appIcon: "harbour-skodja"
-        category: "x-harbour.harbour-skodja.event"
-        previewSummary: ""
-        previewBody: ""
-        summary: ""
-        body: ""
-    }
-
-    Notification {
-        id: releaseNotification
-        appName: "harbour-skodja"
-        appIcon: "harbour-skodja"
-        category: "x-harbour.harbour-skodja.release"
-        previewSummary: ""
-        previewBody: ""
-        summary: ""
-        body: ""
-    }
 
     SilicaListView {
         id: listView
@@ -61,7 +38,7 @@ Page {
             }
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "v0.8.6"
+                text: "v0.9.0"
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeExtraSmall
             }
@@ -73,7 +50,7 @@ Page {
                 onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
             }
             MenuItem {
-                text: "Tjek nu"
+                text: "Opdater liste"
                 onClicked: refresh()
             }
             MenuItem {
@@ -154,7 +131,7 @@ Page {
         ViewPlaceholder {
             enabled: activityModel.count === 0 && !loading
             text: "Ingen aktivitet endnu"
-            hintText: "Træk ned for at opdatere"
+            hintText: "Træk ned for at opdatere listen"
         }
 
         VerticalScrollDecorator {}
@@ -164,17 +141,6 @@ Page {
         anchors.centerIn: parent
         running: loading
         size: BusyIndicatorSize.Large
-    }
-
-    Timer {
-        id: autoRefreshTimer
-        interval: 6000
-        running: true
-        repeat: true
-        onTriggered: {
-            checkForNewEvents()
-            refresh()
-        }
     }
 
     function formatTime(isoString) {
@@ -206,73 +172,13 @@ Page {
         return date.toLocaleDateString("da-DK")
     }
 
-    property bool notificationsEnabled: true
-
-    function checkForNewEvents() {
-        appWindow.py.call("gitwatch.github_client.check_for_updates", [], function(newEvents) {
-            appWindow.py.call("gitwatch.github_client.filter_events_for_notification", [newEvents], function(filtered) {
-                if (filtered.length > 0) {
-                    var releaseEvents = []
-                    var otherEvents = []
-                    for (var i = 0; i < filtered.length; i++) {
-                        if (filtered[i].type === "ReleaseEvent") {
-                            releaseEvents.push(filtered[i])
-                        } else {
-                            otherEvents.push(filtered[i])
-                        }
-                    }
-
-                    if (otherEvents.length > 0) {
-                        var firstOther = otherEvents[0]
-                        var otherSummary = firstOther.summary
-                        var otherBody = (firstOther.user || "") + ": " + firstOther.body
-                        if (otherEvents.length > 1) {
-                            otherBody += " (+" + (otherEvents.length - 1) + " flere)"
-                        }
-                        showNotification(otherSummary, otherBody, false)
-                    }
-
-                    if (releaseEvents.length > 0) {
-                        var firstRelease = releaseEvents[0]
-                        var releaseSummary = firstRelease.summary
-                        var releaseBody = firstRelease.body
-                        if (releaseEvents.length > 1) {
-                            releaseBody += " (+" + (releaseEvents.length - 1) + " flere)"
-                        }
-                        appWindow.py.call("gitwatch.github_client.is_notification_sound_enabled", [], function(soundEnabled) {
-                            showNotification(releaseSummary, releaseBody, soundEnabled)
-                        })
-                    }
-                }
-            })
-        })
-    }
-
-    function showNotification(summaryText, bodyText, withSound) {
-        appWindow.py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
-            if (!enabled) {
-                console.log("Notifications disabled in settings, skipping")
-                return
-            }
-            if (withSound) {
-                releaseNotification.previewSummary = summaryText
-                releaseNotification.previewBody = bodyText
-                releaseNotification.summary = summaryText
-                releaseNotification.body = bodyText
-                releaseNotification.publish()
-            } else {
-                notification.previewSummary = summaryText
-                notification.previewBody = bodyText
-                notification.summary = summaryText
-                notification.body = bodyText
-                notification.publish()
-            }
-        })
+    function showNotification(summaryText, bodyText) {
+        appWindow.py.call("gitwatch.github_client.publish_notification", [summaryText, bodyText, false], function() {})
     }
 
     function refresh() {
         loading = true
-        appWindow.py.call("gitwatch.github_client.get_recent_activity", [30], function(result) {
+        appWindow.py.call("gitwatch.github_client.get_stored_activity", [30], function(result) {
             activityModel.clear()
             for (var k = 0; k < result.length; k++) {
                 var item = result[k]
@@ -288,19 +194,19 @@ Page {
 
     Component.onCompleted: {
         refresh()
-        appWindow.py.call("gitwatch.github_client.are_notifications_enabled", [], function(enabled) {
-            console.log("Notifications enabled: " + enabled)
-        })
     }
+
+    property bool _firstActivation: true
 
     Connections {
         target: appWindow
         onApplicationActiveChanged: {
             if (appWindow.applicationActive) {
-                autoRefreshTimer.start()
-                refresh()
-            } else {
-                autoRefreshTimer.stop()
+                if (_firstActivation) {
+                    _firstActivation = false
+                } else {
+                    refresh()
+                }
             }
         }
     }
