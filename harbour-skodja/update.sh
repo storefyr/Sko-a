@@ -16,7 +16,7 @@ set -e
 
 # --- Konfiguration ---
 REPO="storefyr/Sko-a"
-DEFAULT_VERSION="0.9.8"
+DEFAULT_VERSION="0.9.9"
 VERSION="${1:-${DEFAULT_VERSION}}"
 NO_RESTART=""
 if [ "$2" = "--no-restart" ]; then

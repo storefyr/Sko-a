@@ -103,7 +103,7 @@ jobs:
           mkdir -p harbour-skodja/dist
           for rpm in harbour-skodja/RPMS/*.rpm; do
             if [ -f "$rpm" ]; then
-              newname="harbour-skodja/dist/harbour-skodja-${VERSION}-${{ matrix.arch }}.rpm"
+              newname="harbour-skodja/dist/harbour-skodja-${VERSION}-1.${{ matrix.arch }}.rpm"
               cp "$rpm" "$newname"
               echo "Copied: $rpm -> $newname"
             fi
