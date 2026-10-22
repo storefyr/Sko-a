@@ -1,22 +1,22 @@
 #!/bin/sh
 # Skoðja opdateringsskript — kør på Sailfish OS telefonen
-# Henter og installerer seneste version fra GitHub Releases i én kommando.
+# Henter og installerer seneste version fra GitHub Releases.
 # Stopper gammel daemon, installerer ny RPM, genstarter daemon.
 #
 # Brug:
-#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.8
+#   curl -LO https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh && sh update.sh
 #
 # Valgfrit — angiv en specifik version:
-#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.8
+#   sh update.sh 0.9.10
 #
-# Valgfrit — spring daemon-genstart over (hvis du vil gøre det manuelt senere):
-#   sh update.sh 0.9.8 --no-restart
+# Valgfrit — spring daemon-genstart over:
+#   sh update.sh 0.9.10 --no-restart
 
 set -e
 
 # --- Konfiguration ---
 REPO="storefyr/Sko-a"
-DEFAULT_VERSION="0.9.9"
+DEFAULT_VERSION="0.9.10"
 VERSION="${1:-${DEFAULT_VERSION}}"
 NO_RESTART=""
 if [ "$2" = "--no-restart" ]; then
@@ -92,42 +92,41 @@ echo ""
 # --- Trin 5: Installer ---
 echo "--- Trin 4/6: Installerer Skoðja v${VERSION} ---"
 echo ""
-echo "  VIGTIGT: pkcon vil vise en popup-dialog for sikkerhedskode."
-echo "  Kig efter popup'en og indtast din sikkerhedskode der!"
-echo ""
-# Kør installationen i baggrunden så popup'en kan komme frem,
-# og vent på at den bliver færdig.
-pkcon install-local "${TMP_FILE}" &
-PKCON_PID=$!
 
-# Vent på at pkcon er færdig (max 120 sekunder)
-WAITED=0
-while kill -0 $PKCON_PID 2>/dev/null && [ $WAITED -lt 120 ]; do
-    sleep 1
-    WAITED=$((WAITED + 1))
-done
+# pkcon install-local kræver interaktion (popup med sikkerhedskode).
+# Vi kører den direkte på terminalen — IKKE i baggrunden — så popup'en
+# har adgang til skærmen og kan modtage input.
+# Hvis scriptet køres via 'curl | sh', vil stdin være lukket, så vi
+# omdirigerer fra /dev/tty for at sikre terminal-adgang.
 
-# Tjek om processen stadig kører (timeout)
-if kill -0 $PKCON_PID 2>/dev/null; then
+if [ -t 0 ]; then
+    # Normal terminal — kør direkte
+    pkcon install-local "${TMP_FILE}"
+    PKCON_EXIT=$?
+else
+    # Kørt via curl | sh — stdin er ikke en terminal
+    # Forsøg at åbne /dev/tty direkte
+    echo "  ADVARSEL: Scriptet kører ikke i en terminal (curl | sh)."
+    echo "  Prøver at redirecte fra /dev/tty..."
     echo ""
-    echo "  ADVARSEL: Installationen tog for lang tid — blev popup'en vist?"
-    echo "  Prøv at køre manuelt:"
-    echo "    pkcon install-local ${TMP_FILE}"
-    kill $PKCON_PID 2>/dev/null || true
-    rm -f "${TMP_FILE}"
-    exit 1
+    if pkcon install-local "${TMP_FILE}" < /dev/tty; then
+        PKCON_EXIT=0
+    else
+        PKCON_EXIT=$?
+    fi
 fi
-
-# Vent på exit code
-wait $PKCON_PID
-PKCON_EXIT=$?
 
 if [ $PKCON_EXIT -ne 0 ]; then
     echo ""
     echo "  FEJL: Installation fejlede (exit code: $PKCON_EXIT)"
-    echo "  Hvis popup'en ikke dukkede op, prøv at køre manuelt:"
+    echo ""
+    echo "  Hvis popup'en ikke dukkede op, kør manuelt:"
     echo "    pkcon install-local ${TMP_FILE}"
     echo "  (Så kan du se popup'en og indtaste sikkerhedskoden)"
+    echo ""
+    echo "  Efter manuel installation, kør:"
+    echo "    systemctl --user daemon-reload"
+    echo "    systemctl --user enable --now harbour-skodja.service"
     exit 1
 fi
 echo "  Installation OK"
