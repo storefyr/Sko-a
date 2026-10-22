@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_ATOM_BASE = "https://github.com"
-USER_AGENT = "harbour-skodja/0.9.3 (Sailfish OS)"
+USER_AGENT = "harbour-skodja/0.9.4 (Sailfish OS)"
 
 
 def _get_data_dir():
@@ -1264,28 +1264,60 @@ def run_daemon(interval_seconds=60):
     This runs entirely in Python without any QML dependency.
     Writes PID file so the app can check if daemon is running.
     """
+    import sys
     import traceback
 
+    print("Skoðja daemon initializing...", flush=True)
+    print("Python version: " + sys.version, flush=True)
+    print("Working directory: " + os.getcwd(), flush=True)
+    print("HOME: " + os.environ.get("HOME", "(not set)"), flush=True)
+    print("USER: " + os.environ.get("USER", "(not set)"), flush=True)
+    print("XDG_DATA_HOME: " + os.environ.get("XDG_DATA_HOME", "(not set)"), flush=True)
+    print("DBUS_SESSION_BUS_ADDRESS: " + os.environ.get("DBUS_SESSION_BUS_ADDRESS", "(not set)"), flush=True)
+    print("DATA_DIR: " + DATA_DIR, flush=True)
+
+    try:
+        ensure_data_dir()
+        print("Data directory ready: " + DATA_DIR, flush=True)
+    except Exception as e:
+        print("FATAL: Could not create data directory " + DATA_DIR + ": " + str(e), flush=True)
+        raise
+
+    try:
+        lock_fd = acquire_lock(timeout=1)
+        if lock_fd is None:
+            print("Another instance is already running (lock held), exiting.", flush=True)
+            sys.exit(0)
+        release_lock(lock_fd)
+        print("Lock check passed (no other instance running)", flush=True)
+    except Exception as e:
+        print("Lock check warning: " + str(e), flush=True)
+
     _write_daemon_pid()
-    print("Skoða daemon started (PID %d, interval: %ds)" % (os.getpid(), interval_seconds), flush=True)
+    print("Skoðja daemon started (PID %d, interval: %ds)" % (os.getpid(), interval_seconds), flush=True)
+
     try:
         while True:
             try:
+                print("Skoðja daemon: checking for updates...", flush=True)
                 result = check_and_notify()
                 if result.get("status") == "ok" and result.get("notified", 0) > 0:
-                    print("Skoða daemon: Published {} notification(s)".format(result["notified"]), flush=True)
+                    print("Skoðja daemon: Published {} notification(s)".format(result["notified"]), flush=True)
+                elif result.get("status") == "ok":
+                    print("Skoðja daemon: check complete, no new events", flush=True)
                 elif result.get("status") == "error":
-                    print("Skoða daemon error: " + str(result.get("error", "unknown")), flush=True)
+                    print("Skoðja daemon error: " + str(result.get("error", "unknown")), flush=True)
             except Exception as e:
-                print("Skoða daemon exception: " + str(e), flush=True)
+                print("Skoðja daemon exception: " + str(e), flush=True)
                 traceback.print_exc()
             time.sleep(interval_seconds)
     except Exception as e:
-        print("Skoða daemon FATAL: " + str(e), flush=True)
+        print("Skoðja daemon FATAL: " + str(e), flush=True)
         traceback.print_exc()
         raise
     finally:
         _cleanup_daemon_pid()
+        print("Skoðja daemon stopped", flush=True)
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@
 
 Name:           harbour-skodja
 Summary:        Skoðja - GitHub Activity Notifier
-Version:        0.9.3
+Version:        0.9.4
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -78,15 +78,24 @@ install -d %{buildroot}%{_userunitdir}
 cat > %{buildroot}%{_userunitdir}/%{name}.service <<'SERVICE'
 [Unit]
 Description=Skoðja Background Daemon
-After=lipstick.service graphical-session.target
+After=lipstick.service graphical-session.target dbus.service
+Wants=dbus.service
 
 [Service]
 Type=simple
+Environment="HOME=%h"
+Environment="USER=%u"
+Environment="XDG_DATA_HOME=%h/.local/share"
+Environment="XDG_RUNTIME_DIR=/run/user/%U"
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus"
 ExecStart=/usr/bin/python3 /usr/share/harbour-skodja/python/gitwatch/github_client.py 60
-Restart=on-failure
+Restart=always
 RestartSec=10s
+TimeoutStartSec=30s
+TimeoutStopSec=10s
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=harbour-skodja
 
 [Install]
 WantedBy=default.target
