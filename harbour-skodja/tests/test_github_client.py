@@ -831,7 +831,12 @@ class TestPackagingFiles(unittest.TestCase):
         self.assertIn("python3", content)
         self.assertIn("github_client.py", content)
         self.assertIn("Type=simple", content)
-        self.assertIn("Restart=on-failure", content)
+        self.assertIn("Restart=always", content)
+        self.assertIn('Environment="HOME=%h"', content)
+        self.assertIn('Environment="XDG_DATA_HOME=%h/.local/share"', content)
+        self.assertIn('Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus"', content)
+        self.assertIn("After=lipstick.service graphical-session.target dbus.service", content)
+        self.assertIn("Wants=dbus.service", content)
         self.assertNotIn("harbour-skodja.timer", content)
 
     def test_spec_runs_python_daemon_directly(self):
