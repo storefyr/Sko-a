@@ -3,11 +3,9 @@
 # Usage: sh update.sh [version]
 # Example: sh update.sh 0.9.5
 # Or download and run directly:
-#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.5
+#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.6
 
-set -e
-
-VERSION="${1:-0.9.5}"
+VERSION="${1:-0.9.6}"
 ARCH="aarch64"
 RPM_NAME="harbour-skodja-${VERSION}-${ARCH}.rpm"
 DOWNLOAD_URL="https://github.com/storefyr/Sko-a/releases/download/v${VERSION}/${RPM_NAME}"
@@ -37,7 +35,33 @@ if ! rpm -qp "${RPM_NAME}" 2>/dev/null; then
 fi
 
 echo "--- Step 4: Install new version ---"
-pkcon install-local "${TMP_DIR}/${RPM_NAME}"
+# Try pkcon install-local first (works if polkit allows)
+if pkcon install-local "${TMP_DIR}/${RPM_NAME}" 2>/dev/null; then
+    echo "Installed via pkcon (user)"
+else
+    echo "pkcon as user failed, trying with devel-su..."
+    # Copy to home directory for devel-su access
+    cp "${TMP_DIR}/${RPM_NAME}" "${HOME}/${RPM_NAME}"
+    chmod 644 "${HOME}/${RPM_NAME}"
+    if devel-su pkcon install-local "${HOME}/${RPM_NAME}"; then
+        echo "Installed via devel-su (root)"
+        rm -f "${HOME}/${RPM_NAME}"
+    else
+        echo ""
+        echo "ERROR: Installation failed!"
+        echo ""
+        echo "Please install manually:"
+        echo "  1. Copy ${RPM_NAME} to your phone (e.g. via USB or Downloads folder)"
+        echo "  2. Open Files app, navigate to the RPM"
+        echo "  3. Tap the RPM and select 'Install'"
+        echo ""
+        echo "Or run as root:"
+        echo "  devel-su pkcon install-local ${TMP_DIR}/${RPM_NAME}"
+        echo "  (You will be asked for the developer mode password)"
+        exit 1
+    fi
+fi
+rm -f "${TMP_DIR}/${RPM_NAME}"
 
 echo "--- Step 5: Reload systemd ---"
 systemctl --user daemon-reload
@@ -106,9 +130,6 @@ else
     echo "5. Data directory:"
     ls -la "${HOME}/.local/share/com.storefyr/harbour-skodja/" 2>/dev/null || echo "(directory not found)"
     echo ""
-    echo "6. Environment check (what systemd sees):"
-    systemctl --user show harbour-skodja.service -p Environment 2>/dev/null || true
-    echo ""
     echo "--- Attempting manual start for debugging ---"
     echo "Running wrapper script manually:"
     timeout 15 /usr/share/harbour-skodja/daemon-wrapper.sh 5 2>&1 || true
@@ -117,7 +138,7 @@ else
     journalctl --user -u harbour-skodja.service --no-pager -n 50 2>/dev/null || echo "(no journal access)"
     echo ""
     echo "--- Wrapper logs ---"
-    journalctl --user -t harbour-skodja-wrapper --no-pager -n 20 2>/dev/null || echo "(no wrapper logs)"
+    journalctl -t harbour-skodja-wrapper --no-pager -n 20 2>/dev/null || echo "(no wrapper logs)"
     echo ""
     echo "--- Try manually: ---"
     echo "  systemctl --user start harbour-skodja.service"
