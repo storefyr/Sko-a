@@ -47,6 +47,7 @@ Page {
             Repeater {
                 model: watchedUsers
                 delegate: ListItem {
+                    id: userListItem
                     contentHeight: Theme.itemSizeSmall
                     Label {
                         anchors {
@@ -58,7 +59,7 @@ Page {
                         color: Theme.primaryColor
                     }
                     onClicked: {
-                        remorseAction("Fjern " + modelData + "?", function() {
+                        userListItem.remorseAction("Fjern " + modelData + "?", function() {
                             appWindow.py.call("gitwatch.github_client.remove_watched_user", [modelData], function(users) {
                                 watchedUsers = users
                                 appWindow.watchedUsersChanged()
@@ -252,7 +253,7 @@ Page {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Nulstil statistik"
                 onClicked: {
-                    remorseAction("Nulstil statistik?", function() {
+                    settingsPage.remorseAction("Nulstil statistik?", function() {
                         appWindow.py.call("gitwatch.github_client.reset_statistics", [], function() {
                             refreshStatistics()
                         })
@@ -269,7 +270,7 @@ Page {
                 text: "Nulstil sete hændelser"
                 onClicked: {
                     appWindow.py.call("gitwatch.github_client.reset_seen_events", [], function() {
-                        remorseAction("Nulstillet", function() {})
+                        settingsPage.remorseAction("Nulstillet", function() {})
                     })
                 }
             }
@@ -290,7 +291,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "Skoðja 0.8.3\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
+                text: "Skoðja 0.8.4\nOvervåger GitHub-aktivitet for udvalgte brugere.\nOpdaterer i appen hvert 6. sekund.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap

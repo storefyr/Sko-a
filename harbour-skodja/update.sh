@@ -1,13 +1,13 @@
 #!/bin/sh
 # Skoðja update script - run on the Jolla Phone
 # Usage: sh update.sh [version]
-# Example: sh update.sh 0.8.3
+# Example: sh update.sh 0.8.4
 # Or download and run directly:
-#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.8.3
+#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.8.4
 
 set -e
 
-VERSION="${1:-0.8.3}"
+VERSION="${1:-0.8.4}"
 ARCH="aarch64"
 RPM_NAME="harbour-skodja-${VERSION}-${ARCH}.rpm"
 DOWNLOAD_URL="https://github.com/storefyr/Sko-a/releases/download/v${VERSION}/${RPM_NAME}"
