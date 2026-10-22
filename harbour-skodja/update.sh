@@ -1,236 +1,188 @@
 #!/bin/sh
-# Skoðja update script - run on the Jolla Phone
-# Usage: sh update.sh [version]
-# Example: sh update.sh 0.9.7
-# Or download and run directly:
-#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.7
+# Skoðja opdateringsskript — kør på Sailfish OS telefonen
+# Henter og installerer seneste version fra GitHub Releases i én kommando.
+# Stopper gammel daemon, installerer ny RPM, genstarter daemon.
 #
-# This script handles all installation methods automatically:
-# 1. Try pkcon install-local (works without password on some setups)
-# 2. Try zypper install (if available)
-# 3. Copy RPM to Downloads folder and show instructions for GUI install
+# Brug:
+#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.8
+#
+# Valgfrit — angiv en specifik version:
+#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.8
+#
+# Valgfrit — spring daemon-genstart over (hvis du vil gøre det manuelt senere):
+#   sh update.sh 0.9.8 --no-restart
 
-VERSION="${1:-0.9.7}"
+set -e
+
+# --- Konfiguration ---
+REPO="storefyr/Sko-a"
+DEFAULT_VERSION="0.9.8"
+VERSION="${1:-${DEFAULT_VERSION}}"
+NO_RESTART=""
+if [ "$2" = "--no-restart" ]; then
+    NO_RESTART="yes"
+elif [ "$1" = "--no-restart" ]; then
+    NO_RESTART="yes"
+    VERSION="${DEFAULT_VERSION}"
+fi
 ARCH="aarch64"
-RPM_NAME="harbour-skodja-${VERSION}-${ARCH}.rpm"
-DOWNLOAD_URL="https://github.com/storefyr/Sko-a/releases/download/v${VERSION}/${RPM_NAME}"
-TMP_DIR="/tmp"
-DOWNLOADS_DIR="${HOME}/Downloads"
+RPM_NAME="harbour-skodja-${VERSION}-1.${ARCH}.rpm"
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${RPM_NAME}"
+TMP_FILE="/tmp/${RPM_NAME}"
 
-echo "=== Skoðja Update Script v${VERSION} ==="
+echo ""
+echo "=== Skoðja Update Script ==="
+echo "  Version: v${VERSION}"
+echo "  Architecture: ${ARCH}"
+echo "  Target: Jolla Phone 2026 (Sailfish OS)"
 echo ""
 
-# Check if running on Sailfish OS
-if [ ! -f /etc/os-release ] || ! grep -q "sailfish\|Sailfish" /etc/os-release 2>/dev/null; then
-    echo "WARNING: This does not appear to be Sailfish OS"
-    echo "Continuing anyway..."
-    echo ""
-fi
-
-echo "--- Step 1: Stop old service ---"
-systemctl --user stop harbour-skodja.service 2>/dev/null && echo "Service stopped" || echo "Service was not running (OK)"
-
-echo "--- Step 2: Download new RPM ---"
-cd "${TMP_DIR}"
-rm -f "${RPM_NAME}"
-if curl -sLO "${DOWNLOAD_URL}"; then
-    echo "Downloaded: ${RPM_NAME}"
-    ls -la "${RPM_NAME}"
-else
-    echo "ERROR: Failed to download RPM"
+# --- Trin 1: Tjek om vi kører på Sailfish OS ---
+if ! command -v pkcon >/dev/null 2>&1; then
+    echo "FEJL: pkcon ikke fundet — kører du dette på en Sailfish OS telefon?"
     exit 1
 fi
 
-echo "--- Step 3: Verify RPM ---"
-if rpm -qp "${RPM_NAME}" >/dev/null 2>&1; then
-    echo "RPM verified: $(rpm -qp "${RPM_NAME}" 2>/dev/null)"
+# --- Trin 2: Stop gammel daemon ---
+echo "--- Trin 1/6: Stopper gammel daemon ---"
+if systemctl --user is-active --quiet harbour-skodja.service 2>/dev/null; then
+    systemctl --user stop harbour-skodja.service
+    echo "  Daemon stoppet"
 else
-    echo "ERROR: Downloaded file is not a valid RPM!"
-    exit 1
+    echo "  Daemon var ikke kørende — springer over"
 fi
-
-echo ""
-echo "--- Step 4: Install new version ---"
-
-INSTALLED=0
-
-# Method 1: Try pkcon install-local (may work without password on some setups)
-echo "Trying method 1: pkcon install-local (user)"
-if pkcon install-local "${TMP_DIR}/${RPM_NAME}" 2>/dev/null; then
-    echo "SUCCESS: Installed via pkcon (user)"
-    INSTALLED=1
-fi
-
-# Method 2: Try pkcon with --allow-reinstall (some setups need this)
-if [ "${INSTALLED}" = "0" ]; then
-    echo "Trying method 2: pkcon install-local --allow-reinstall"
-    if pkcon install-local --allow-reinstall "${TMP_DIR}/${RPM_NAME}" 2>/dev/null; then
-        echo "SUCCESS: Installed via pkcon --allow-reinstall"
-        INSTALLED=1
-    fi
-fi
-
-# Method 3: Try zypper (if available)
-if [ "${INSTALLED}" = "0" ]; then
-    if command -v zypper >/dev/null 2>&1; then
-        echo "Trying method 3: zypper install"
-        if zypper --non-interactive install "${TMP_DIR}/${RPM_NAME}" 2>/dev/null; then
-            echo "SUCCESS: Installed via zypper"
-            INSTALLED=1
-        fi
-    fi
-fi
-
-# Method 4: Try rpm -Uvh directly (may work on some systems)
-if [ "${INSTALLED}" = "0" ]; then
-    echo "Trying method 4: rpm -Uvh (direct)"
-    if rpm -Uvh --force "${TMP_DIR}/${RPM_NAME}" 2>/dev/null; then
-        echo "SUCCESS: Installed via rpm -Uvh"
-        INSTALLED=1
-    fi
-fi
-
-# Method 5: Try using PackageKit with dbus (alternative auth)
-if [ "${INSTALLED}" = "0" ]; then
-    echo "Trying method 5: PackageKit via dbus-send"
-    if command -v dbus-send >/dev/null 2>&1; then
-        # This is a long shot but worth trying
-        RPM_PATH="file://${TMP_DIR}/${RPM_NAME}"
-        if dbus-send --system --print-reply --dest=org.freedesktop.PackageKit \
-            /org/freedesktop/PackageKit \
-            org.freedesktop.PackageKit.InstallPackageFiles \
-            array:string:"${RPM_PATH}" string:"hide-finished" 2>/dev/null; then
-            echo "SUCCESS: Installed via PackageKit dbus"
-            INSTALLED=1
-        fi
-    fi
-fi
-
-# Method 6: Copy to Downloads and show GUI instructions
-if [ "${INSTALLED}" = "0" ]; then
-    echo ""
-    echo "Automatic installation failed. Preparing for GUI installation..."
-    echo ""
-
-    # Create Downloads directory if it doesn't exist
-    mkdir -p "${DOWNLOADS_DIR}"
-
-    # Copy RPM to Downloads folder
-    cp "${TMP_DIR}/${RPM_NAME}" "${DOWNLOADS_DIR}/${RPM_NAME}"
-    chmod 644 "${DOWNLOADS_DIR}/${RPM_NAME}"
-
-    echo "RPM copied to: ${DOWNLOADS_DIR}/${RPM_NAME}"
-    echo ""
-    echo "=== ACTION REQUIRED ==="
-    echo ""
-    echo "Please do ONE of the following:"
-    echo ""
-    echo "Option A (Easiest - GUI):"
-    echo "  1. Open the 'Files' app"
-    echo "  2. Navigate to 'Downloads'"
-    echo "  3. Tap on '${RPM_NAME}'"
-    echo "  4. Select 'Install'"
-    echo "  5. Enter your device lock code when prompted"
-    echo ""
-    echo "Option B (Terminal with Developer Mode):"
-    echo "  1. Enable Developer Mode: Settings > System > Developer Mode"
-    echo "  2. Set a developer password"
-    echo "  3. Run: devel-su pkcon install-local ${DOWNLOADS_DIR}/${RPM_NAME}"
-    echo ""
-    echo "Option C (One-liner, needs Developer Mode):"
-    echo "  devel-su pkcon install-local ${DOWNLOADS_DIR}/${RPM_NAME}"
-    echo ""
-    echo "After installation, run these commands to start the daemon:"
-    echo ""
-    echo "  systemctl --user daemon-reload"
-    echo "  systemctl --user enable harbour-skodja.service"
-    echo "  systemctl --user start harbour-skodja.service"
-    echo "  systemctl --user status harbour-skodja.service"
-    echo ""
-    echo "=== End of script ==="
-    exit 2
-fi
-
-# Clean up
-rm -f "${TMP_DIR}/${RPM_NAME}"
-
-echo ""
-echo "--- Step 5: Reload systemd ---"
-systemctl --user daemon-reload
-
-echo "--- Step 6: Restart lipstick (for notification categories) ---"
-systemctl --user restart lipstick 2>/dev/null || true
-
-echo "--- Step 7: Enable service ---"
-systemctl --user enable harbour-skodja.service 2>/dev/null || true
-
-echo "--- Step 8: Clean up any existing daemon processes ---"
+# Dræb også manuelle instanser
 pkill -f "github_client.py" 2>/dev/null || true
 pkill -f "daemon-wrapper.sh" 2>/dev/null || true
-sleep 1
+echo ""
 
-echo "--- Step 9: Clear any stale lock files ---"
+# --- Trin 3: Ryd gamle låse-filer ---
+echo "--- Trin 2/6: Rydder gamle låse-filer ---"
 LOCK_FILE="${HOME}/.local/share/com.storefyr/harbour-skodja/state.lock"
 if [ -f "${LOCK_FILE}" ]; then
-    echo "Removing stale lock file: ${LOCK_FILE}"
-    rm -f "${LOCK_FILE}" 2>/dev/null || true
-fi
-
-echo "--- Step 10: Start service ---"
-if systemctl --user start harbour-skodja.service 2>/dev/null; then
-    echo "Service started successfully"
+    rm -f "${LOCK_FILE}"
+    echo "  Fjernede stale låse-fil"
 else
-    echo "WARNING: First start attempt failed, retrying..."
-    sleep 3
-    systemctl --user start harbour-skodja.service 2>/dev/null || echo "ERROR: Failed to start service"
+    echo "  Ingen låse-fil at fjerne"
+fi
+echo ""
+
+# --- Trin 4: Download ny RPM ---
+echo "--- Trin 3/6: Henter Skoðja v${VERSION} ---"
+echo "  URL: ${DOWNLOAD_URL}"
+rm -f "${TMP_FILE}"
+curl -sL -o "${TMP_FILE}" "${DOWNLOAD_URL}"
+
+# Tjek at download faktisk er en RPM
+if [ ! -s "${TMP_FILE}" ]; then
+    echo "FEJL: Download fejlede — filen er tom"
+    exit 1
+fi
+if ! head -c 4 "${TMP_FILE}" | od -An -tx1 | grep -q "ed ab ee db"; then
+    echo "FEJL: Downloadet fil er ikke en gyldig RPM"
+    echo "  (Måske findes version v${VERSION} ikke?)"
+    head -c 200 "${TMP_FILE}"
+    echo ""
+    rm -f "${TMP_FILE}"
+    exit 1
+fi
+echo "  Download færdig: $(wc -c < "${TMP_FILE}" | tr -d ' ') bytes"
+echo ""
+
+# --- Trin 5: Installer ---
+echo "--- Trin 4/6: Installerer Skoðja v${VERSION} ---"
+echo ""
+echo "  VIGTIGT: pkcon vil vise en popup-dialog for sikkerhedskode."
+echo "  Kig efter popup'en og indtast din sikkerhedskode der!"
+echo ""
+# Kør installationen i baggrunden så popup'en kan komme frem,
+# og vent på at den bliver færdig.
+pkcon install-local "${TMP_FILE}" &
+PKCON_PID=$!
+
+# Vent på at pkcon er færdig (max 120 sekunder)
+WAITED=0
+while kill -0 $PKCON_PID 2>/dev/null && [ $WAITED -lt 120 ]; do
+    sleep 1
+    WAITED=$((WAITED + 1))
+done
+
+# Tjek om processen stadig kører (timeout)
+if kill -0 $PKCON_PID 2>/dev/null; then
+    echo ""
+    echo "  ADVARSEL: Installationen tog for lang tid — blev popup'en vist?"
+    echo "  Prøv at køre manuelt:"
+    echo "    pkcon install-local ${TMP_FILE}"
+    kill $PKCON_PID 2>/dev/null || true
+    rm -f "${TMP_FILE}"
+    exit 1
 fi
 
+# Vent på exit code
+wait $PKCON_PID
+PKCON_EXIT=$?
+
+if [ $PKCON_EXIT -ne 0 ]; then
+    echo ""
+    echo "  FEJL: Installation fejlede (exit code: $PKCON_EXIT)"
+    echo "  Hvis popup'en ikke dukkede op, prøv at køre manuelt:"
+    echo "    pkcon install-local ${TMP_FILE}"
+    echo "  (Så kan du se popup'en og indtaste sikkerhedskoden)"
+    exit 1
+fi
+echo "  Installation OK"
 echo ""
-echo "=== Checking status ==="
+
+# --- Trin 6: Reload systemd og genstart lipstick ---
+echo "--- Trin 5/6: Genindlæser systemd og lipstick ---"
+systemctl --user daemon-reload
+systemctl --user restart lipstick 2>/dev/null || true
+echo "  Systemd genindlæst, lipstick genstartet"
+echo ""
+
+# --- Trin 7: Aktiver og start daemon ---
+if [ "$NO_RESTART" = "yes" ]; then
+    echo "--- Trin 6/6: Daemon-genstart SKIPPET (--no-restart) ---"
+    systemctl --user enable harbour-skodja.service 2>/dev/null || true
+    echo "  Service aktiveret (starter ved næste login)"
+else
+    echo "--- Trin 6/6: Aktiverer og starter daemon ---"
+    systemctl --user enable harbour-skodja.service 2>/dev/null || true
+    if systemctl --user start harbour-skodja.service 2>/dev/null; then
+        echo "  Daemon startet"
+    else
+        sleep 2
+        systemctl --user start harbour-skodja.service 2>/dev/null && echo "  Daemon startet (efter retry)" || echo "  ADVARSEL: Kunne ikke starte daemon"
+    fi
+fi
+echo ""
+
+# --- Trin 8: Ryd op og verificer ---
+echo "--- Verificerer ---"
+rm -f "${TMP_FILE}"
 sleep 2
-systemctl --user status harbour-skodja.service 2>/dev/null || true
 
-echo ""
-echo "=== Verifying daemon is running ==="
-sleep 3
-if systemctl --user is-active --quiet harbour-skodja.service; then
+if systemctl --user is-active --quiet harbour-skodja.service 2>/dev/null; then
     echo ""
-    echo "SUCCESS: Skoðja daemon is running!"
+    echo "  ✅ Skoðja v${VERSION} er installeret og kører!"
+    echo ""
+    echo "  Daemon tjekker GitHub hvert 60. sekund."
+    echo "  Åbn Skoðja app'en for at se aktivitet og ændre indstillinger."
+    echo ""
+    echo "  Nyttige kommandoer:"
+    echo "    systemctl --user status harbour-skodja.service   Se status"
+    echo "    journalctl -t harbour-skodja-wrapper -f          Følg wrapper logs"
+    echo "    journalctl --user -u harbour-skodja.service -f   Følg service logs"
     echo ""
 else
     echo ""
-    echo "WARNING: Daemon is not running!"
+    echo "  ⚠️  Installation OK, men daemon kører ikke endnu."
     echo ""
-    echo "--- Diagnostic information ---"
+    echo "  Prøv at starte den manuelt:"
+    echo "    systemctl --user start harbour-skodja.service"
     echo ""
-    echo "Service file:"
-    cat /usr/lib/systemd/user/harbour-skodja.service 2>/dev/null || echo "(not found)"
+    echo "  Se logs for fejlfinding:"
+    echo "    journalctl --user -u harbour-skodja.service -n 30 --no-pager"
+    echo "    journalctl -t harbour-skodja-wrapper -n 30 --no-pager"
     echo ""
-    echo "Recent service logs:"
-    journalctl --user -u harbour-skodja.service --no-pager -n 20 2>/dev/null || echo "(no logs)"
-    echo ""
-    echo "Wrapper logs:"
-    journalctl -t harbour-skodja-wrapper --no-pager -n 20 2>/dev/null || echo "(no wrapper logs)"
-    echo ""
-    echo "--- Try running wrapper manually ---"
-    timeout 10 /usr/share/harbour-skodja/daemon-wrapper.sh 5 2>&1 || true
 fi
-
-echo ""
-echo "=== Recent logs (last 20 lines) ==="
-journalctl --user -u harbour-skodja.service --no-pager -n 20 2>/dev/null || echo "(no journal access)"
-
-echo ""
-echo "=== Wrapper logs (last 20 lines) ==="
-journalctl -t harbour-skodja-wrapper --no-pager -n 20 2>/dev/null || echo "(no wrapper logs)"
-
-echo ""
-echo "=== Done! ==="
-echo "Skoðja ${VERSION} installed."
-echo "The daemon checks GitHub every 60 seconds and sends notifications."
-echo "Open the app to see activity and change settings."
-echo ""
-echo "Useful commands:"
-echo "  systemctl --user status harbour-skodja.service  - Check if running"
-echo "  journalctl -t harbour-skodja-wrapper -f          - Follow wrapper logs"
-echo "  journalctl --user -u harbour-skodja.service -f   - Follow service logs"
