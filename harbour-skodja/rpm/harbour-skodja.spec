@@ -19,7 +19,7 @@
 
 Name:           harbour-skodja
 Summary:        Skoðja - GitHub Activity Notifier
-Version:        0.9.2
+Version:        0.9.3
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -85,6 +85,8 @@ Type=simple
 ExecStart=/usr/bin/python3 /usr/share/harbour-skodja/python/gitwatch/github_client.py 60
 Restart=on-failure
 RestartSec=10s
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=default.target
@@ -96,8 +98,12 @@ systemctl --user enable harbour-skodja.service 2>/dev/null || true
 systemctl --user restart lipstick 2>/dev/null || true
 # Service start is handled by update.sh (runs as user, not root)
 
-%postun
+%preun
+# Stop the daemon before files are removed (runs as user during uninstall)
 systemctl --user stop harbour-skodja.service 2>/dev/null || true
+
+%postun
+# Disable autostart and reload (runs as root, commands may fail - that's OK)
 systemctl --user disable harbour-skodja.service 2>/dev/null || true
 systemctl --user daemon-reload 2>/dev/null || true
 systemctl --user restart lipstick 2>/dev/null || true

@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_ATOM_BASE = "https://github.com"
-USER_AGENT = "harbour-skodja/0.9.2 (Sailfish OS)"
+USER_AGENT = "harbour-skodja/0.9.3 (Sailfish OS)"
 
 
 def _get_data_dir():
@@ -1264,19 +1264,26 @@ def run_daemon(interval_seconds=60):
     This runs entirely in Python without any QML dependency.
     Writes PID file so the app can check if daemon is running.
     """
+    import traceback
+
     _write_daemon_pid()
-    print("Skoða daemon started (PID %d, interval: %ds)" % (os.getpid(), interval_seconds))
+    print("Skoða daemon started (PID %d, interval: %ds)" % (os.getpid(), interval_seconds), flush=True)
     try:
         while True:
             try:
                 result = check_and_notify()
                 if result.get("status") == "ok" and result.get("notified", 0) > 0:
-                    print("Skoða daemon: Published {} notification(s)".format(result["notified"]))
+                    print("Skoða daemon: Published {} notification(s)".format(result["notified"]), flush=True)
                 elif result.get("status") == "error":
-                    print("Skoða daemon error: " + str(result.get("error", "unknown")))
+                    print("Skoða daemon error: " + str(result.get("error", "unknown")), flush=True)
             except Exception as e:
-                print("Skoða daemon exception: " + str(e))
+                print("Skoða daemon exception: " + str(e), flush=True)
+                traceback.print_exc()
             time.sleep(interval_seconds)
+    except Exception as e:
+        print("Skoða daemon FATAL: " + str(e), flush=True)
+        traceback.print_exc()
+        raise
     finally:
         _cleanup_daemon_pid()
 

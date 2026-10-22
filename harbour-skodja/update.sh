@@ -1,13 +1,13 @@
 #!/bin/sh
 # Skoðja update script - run on the Jolla Phone
 # Usage: sh update.sh [version]
-# Example: sh update.sh 0.9.2
+# Example: sh update.sh 0.9.3
 # Or download and run directly:
-#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.2
+#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.3
 
 set -e
 
-VERSION="${1:-0.9.2}"
+VERSION="${1:-0.9.3}"
 ARCH="aarch64"
 RPM_NAME="harbour-skodja-${VERSION}-${ARCH}.rpm"
 DOWNLOAD_URL="https://github.com/storefyr/Sko-a/releases/download/v${VERSION}/${RPM_NAME}"
@@ -37,7 +37,7 @@ systemctl --user restart lipstick || true
 
 echo "--- Step 6: Enable and start service ---"
 systemctl --user enable harbour-skodja.service 2>/dev/null || true
-systemctl --user start harbour-skodja.service
+systemctl --user start harbour-skodja.service || echo "WARNING: Failed to start service"
 
 echo ""
 echo "=== Checking status ==="
