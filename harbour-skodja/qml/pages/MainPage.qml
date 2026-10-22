@@ -61,7 +61,7 @@ Page {
             }
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "v0.8.4"
+                text: "v0.8.5"
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeExtraSmall
             }
