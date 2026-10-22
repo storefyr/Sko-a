@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_ATOM_BASE = "https://github.com"
-USER_AGENT = "harbour-skodja/0.9.10 (Sailfish OS)"
+USER_AGENT = "harbour-skodja/0.9.11 (Sailfish OS)"
 
 
 def _get_data_dir():
