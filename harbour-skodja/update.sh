@@ -1,13 +1,13 @@
 #!/bin/sh
 # Skoðja update script - run on the Jolla Phone
 # Usage: sh update.sh [version]
-# Example: sh update.sh 0.9.0
+# Example: sh update.sh 0.9.1
 # Or download and run directly:
-#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.0
+#   curl -sL https://raw.githubusercontent.com/storefyr/Sko-a/main/harbour-skodja/update.sh | sh -s 0.9.1
 
 set -e
 
-VERSION="${1:-0.9.0}"
+VERSION="${1:-0.9.1}"
 ARCH="aarch64"
 RPM_NAME="harbour-skodja-${VERSION}-${ARCH}.rpm"
 DOWNLOAD_URL="https://github.com/storefyr/Sko-a/releases/download/v${VERSION}/${RPM_NAME}"
@@ -35,18 +35,31 @@ systemctl --user daemon-reload
 echo "--- Step 5: Restart lipstick (for notification categories) ---"
 systemctl --user restart lipstick || true
 
-echo "--- Step 6: Start service ---"
+echo "--- Step 6: Enable and start service ---"
+systemctl --user enable harbour-skodja.service 2>/dev/null || true
 systemctl --user start harbour-skodja.service
 
 echo ""
 echo "=== Checking status ==="
-systemctl --user status harbour-skodja.service
+systemctl --user status harbour-skodja.service || true
+
+echo ""
+echo "=== Verifying daemon is running ==="
+sleep 2
+if systemctl --user is-active --quiet harbour-skodja.service; then
+    echo "OK: Daemon is active (running)"
+else
+    echo "WARNING: Daemon is not running!"
+    echo "Try manually: systemctl --user start harbour-skodja.service"
+    echo "Check logs:   journalctl --user -u harbour-skodja.service -n 20"
+fi
 
 echo ""
 echo "=== Recent logs ==="
-journalctl --user -u harbour-skodja.service --no-pager -n 10 || true
+journalctl --user -u harbour-skodja.service --no-pager -n 10 2>/dev/null || echo "(no journal access)"
 
 echo ""
 echo "=== Done! ==="
-echo "If the service shows 'active (running)', everything is working."
-echo "You may need to restart the phone if the app doesn't start."
+echo "Skoðja ${VERSION} installed."
+echo "The daemon checks GitHub every 60 seconds and sends notifications."
+echo "Open the app to see activity and change settings."

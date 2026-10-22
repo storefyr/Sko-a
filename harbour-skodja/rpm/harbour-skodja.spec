@@ -19,7 +19,7 @@
 
 Name:           harbour-skodja
 Summary:        Skoðja - GitHub Activity Notifier
-Version:        0.9.0
+Version:        0.9.1
 Release:        1
 Group:          Applications/Internet
 License:        GPL-3.0
@@ -91,16 +91,16 @@ WantedBy=default.target
 SERVICE
 
 %post
-systemctl --user daemon-reload || true
-systemctl --user enable harbour-skodja.service || true
-systemctl --user restart harbour-skodja.service || true
-systemctl --user restart lipstick || true
+systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user enable harbour-skodja.service 2>/dev/null || true
+systemctl --user restart lipstick 2>/dev/null || true
+# Service start is handled by update.sh (runs as user, not root)
 
 %postun
-systemctl --user stop harbour-skodja.service || true
-systemctl --user disable harbour-skodja.service || true
-systemctl --user daemon-reload || true
-systemctl --user restart lipstick || true
+systemctl --user stop harbour-skodja.service 2>/dev/null || true
+systemctl --user disable harbour-skodja.service 2>/dev/null || true
+systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user restart lipstick 2>/dev/null || true
 
 %files
 %defattr(-,root,root,-)

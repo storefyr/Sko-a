@@ -295,7 +295,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                text: "Skoðja 0.9.0\nOvervåger GitHub-aktivitet for udvalgte brugere.\nTjekker via baggrundsdaemon hvert minut.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
+                text: "Skoðja 0.9.1\nOvervåger GitHub-aktivitet for udvalgte brugere.\nTjekker via baggrundsdaemon hvert minut.\nK\u00f8rer som baggrundsdaemon.\nLyd via Sailfish OS indstillinger."
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
